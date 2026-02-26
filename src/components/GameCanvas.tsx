@@ -193,11 +193,12 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, x + px*10, headY - px*4, px*6, px*4, '#B33E3E');
     drawPixelRect(ctx, x + px*12, headY - px*7, px*4, px*4, '#FF4500');
 
-    // Visor Eye Glow
+    // Visor Eye Glow (Two eyes now)
     ctx.fillStyle = '#00FFFF';
     ctx.shadowBlur = 8;
     ctx.shadowColor = '#00FFFF';
-    drawPixelRect(ctx, x + width - px*12, headY + px*4, px*2, px*2, '#00FFFF');
+    drawPixelRect(ctx, x + width - px*14, headY + px*4, px*2, px*2, '#00FFFF');
+    drawPixelRect(ctx, x + width - px*10, headY + px*4, px*2, px*2, '#00FFFF');
     ctx.shadowBlur = 0;
 
     // Sword (Detailed)
@@ -235,7 +236,7 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, m.x + px*2, m.y + px*2, m.width - px*4, m.height - px*4, '#B33E3E');
     
     // Main Eye
-    const eyeMovement = Math.sin(time * 0.12) * 8; 
+    const eyeMovement = Math.sin(time * 0.08) * 8; 
     drawPixelRect(ctx, m.x + px*5, m.y + px*5, m.width - px*10, m.height - px*10, '#FFFFFF'); // Sclera
     
     // Detailed Iris
@@ -263,8 +264,8 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, m.x + m.width - px*3, m.y, px*3, m.height, '#2d2738');
     drawPixelRect(ctx, m.x, m.y + m.height/2 - px, m.width, px*3, '#2d2738');
 
-    // Mouth
-    const mouthOpen = Math.abs(Math.sin(time * 0.15)) * 10;
+    // Mouth - Slowed down significantly
+    const mouthOpen = Math.abs(Math.sin(time * 0.08)) * 12;
     drawPixelRect(ctx, m.x + px*2, m.y + m.height/2 - px, m.width - px*4, mouthOpen, '#000000');
     
     // Teeth
@@ -274,8 +275,8 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Tongue
-    const tongueLen = Math.sin(time * 0.25) * 15 + 10;
+    // Tongue - Slowed down
+    const tongueLen = Math.sin(time * 0.12) * 15 + 10;
     drawPixelRect(ctx, m.x + m.width/2 - px*2, m.y + m.height/2 + 2, px*4, tongueLen, '#D44E5E');
   };
 
@@ -401,7 +402,8 @@ const GameCanvas: React.FC = () => {
       else type = 'MIMIC';
 
       let monsterY = GROUND_Y - 48;
-      if (type === 'BEHOLDER') monsterY = GROUND_Y - 200;
+      // Default position for Beholders - will be modified by vertical movement
+      if (type === 'BEHOLDER') monsterY = GROUND_Y - 180;
       if (type === 'DRAGON') monsterY = GROUND_Y - 240;
 
       monsters.push({
@@ -422,13 +424,15 @@ const GameCanvas: React.FC = () => {
       
       if (m.type === 'BEHOLDER') {
         const seed = parseInt(m.id.slice(0, 4), 36) || 0;
-        const phase = (frameCount * 0.04) + (seed % 100);
-        const amplitude = 135; 
-        const midY = GROUND_Y - 190;
+        // Adjusted vertical movement to be smoother and more predictable
+        const phase = (frameCount * 0.03) + (seed % 100);
+        const amplitude = 110; // Slightly reduced for better passability
+        const midY = GROUND_Y - 180;
         m.y = midY + Math.sin(phase) * amplitude;
       }
 
-      const hitBoxPadding = 12;
+      // Hitbox padding - made more forgiving (larger padding = smaller hitbox)
+      const hitBoxPadding = m.type === 'BEHOLDER' ? 16 : 12;
       if (
         player.x < m.x + m.width - hitBoxPadding &&
         player.x + player.width - hitBoxPadding > m.x &&
