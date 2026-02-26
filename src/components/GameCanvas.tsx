@@ -59,7 +59,7 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // 1. Кирпичная стена с параллаксом
+    // 1. Кирпичная стена с параллаксом (улучшенная кладка)
     const p1 = offset * 0.3;
     const brickW = 80;
     const brickH = 40;
@@ -69,39 +69,47 @@ const GameCanvas: React.FC = () => {
         const isDark = (Math.floor((x + p1) / brickW) + row) % 3 === 0;
         ctx.fillStyle = isDark ? '#1a1621' : '#14111a';
         ctx.fillRect(x, row * brickH, brickW - 2, brickH - 2);
+        
         // Микро-тени для объема кирпича
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.fillRect(x, row * brickH + brickH - 4, brickW - 2, 2);
+        ctx.fillRect(x + brickW - 4, row * brickH, 2, brickH - 2);
       }
     }
 
-    // 2. Колонны и Факелы
+    // 2. Колонны и Факелы с Кронштейнами
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
       // Тело колонны
-      drawPixelRect(ctx, x, 0, 40, GROUND_Y, '#2d2738');
-      drawPixelRect(ctx, x + 5, 0, 5, GROUND_Y, '#3a3345'); // блик
-      drawPixelRect(ctx, x + 30, 0, 10, GROUND_Y, '#1a1621'); // тень
+      drawPixelRect(ctx, x, 0, 48, GROUND_Y, '#2d2738');
+      drawPixelRect(ctx, x + 4, 0, 6, GROUND_Y, '#3a3345'); // блик
+      drawPixelRect(ctx, x + 38, 0, 10, GROUND_Y, '#1a1621'); // тень
       
-      // Крепление факела (Iron bracket)
-      const torchY = 150;
-      drawPixelRect(ctx, x + 8, torchY, 24, 6, '#1a1621'); // горизонтальная часть
-      drawPixelRect(ctx, x + 24, torchY - 10, 6, 16, '#2d2738'); // держатель
+      // Кронштейн факела (Iron bracket)
+      const torchY = 160;
+      const bracketX = x + 30;
+      // Основание на стене
+      drawPixelRect(ctx, bracketX - 4, torchY + 10, 8, 12, '#1a1621');
+      // Горизонтальный держатель
+      drawPixelRect(ctx, bracketX, torchY + 8, 16, 4, '#1a1621');
+      // Чаша факела
+      drawPixelRect(ctx, bracketX + 12, torchY, 12, 10, '#2d2738');
+      drawPixelRect(ctx, bracketX + 14, torchY + 2, 8, 4, '#1a1621');
       
-      // Анимированное Пламя (Многослойное)
+      // Анимированное Пламя
       const flicker = Math.sin(frameCount * 0.15) * 4;
-      const flickerSize = Math.sin(frameCount * 0.2) * 2;
+      const torchBaseX = bracketX + 14;
       
-      ctx.shadowBlur = 20 + flicker;
-      ctx.shadowColor = 'rgba(255, 140, 0, 0.6)';
+      ctx.shadowBlur = 25 + flicker;
+      ctx.shadowColor = 'rgba(255, 120, 0, 0.7)';
       
       // Внешний слой пламени
-      drawPixelRect(ctx, x + 20, torchY - 25 + flicker, 14, 20, '#ff4500');
+      drawPixelRect(ctx, torchBaseX - 2, torchY - 22 + flicker, 12, 24, '#ff4500');
       // Средний слой
-      drawPixelRect(ctx, x + 23, torchY - 20 + flicker, 8, 14, '#ff8c00');
+      drawPixelRect(ctx, torchBaseX, torchY - 18 + flicker, 8, 18, '#ff8c00');
       // Ядро пламени
-      drawPixelRect(ctx, x + 25, torchY - 15 + flicker, 4, 8, '#ffff00');
+      drawPixelRect(ctx, torchBaseX + 2, torchY - 14 + flicker, 4, 12, '#ffff00');
       
       ctx.shadowBlur = 0;
     }
@@ -114,8 +122,8 @@ const GameCanvas: React.FC = () => {
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
     
     // Блики на плитах пола
-    for (let x = -(offset % 60); x < VIRTUAL_WIDTH; x += 60) {
-      drawPixelRect(ctx, x, GROUND_Y, 30, 2, 'rgba(255,255,255,0.05)');
+    for (let x = -(offset % 80); x < VIRTUAL_WIDTH; x += 80) {
+      drawPixelRect(ctx, x, GROUND_Y, 40, 2, 'rgba(255,255,255,0.08)');
     }
   };
 
@@ -125,33 +133,45 @@ const GameCanvas: React.FC = () => {
     const bounce = Math.sin(frame * 0.2) * 2;
     
     // Тень под ногами
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath();
-    ctx.ellipse(x + width/2, GROUND_Y, 20, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width/2, GROUND_Y, 24, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Плащ с градиентом
-    const capeWave = Math.sin(frame * 0.1) * 8;
-    drawPixelRect(ctx, x - px*3 + capeWave, y + px*12 + bounce, px*6, height - px*14, '#833440'); // основной цвет
-    drawPixelRect(ctx, x - px*2 + capeWave, y + px*14 + bounce, px*4, height - px*18, '#5c242c'); // тень на плаще
+    // Плащ с волнообразной анимацией
+    const capeWave = Math.sin(frame * 0.15) * 6;
+    drawPixelRect(ctx, x - px*4 + capeWave, y + px*10 + bounce, px*8, height - px*12, '#833440'); // основной
+    drawPixelRect(ctx, x - px*3 + capeWave, y + px*12 + bounce, px*5, height - px*14, '#5c242c'); // тень
 
-    // Броня (Кираса и наплечники)
-    drawPixelRect(ctx, x + px*4, y + px*12 + bounce, width - px*8, height - px*18, '#6980CC'); 
-    drawPixelRect(ctx, x + px*6, y + px*14 + bounce, px*4, px*4, '#8fa1e0'); // блик на груди
+    // Ноги (Броня)
+    drawPixelRect(ctx, x + px*6, y + height - px*12 + bounce, px*6, px*12, '#2d2738');
+    drawPixelRect(ctx, x + width - px*12, y + height - px*12 + bounce, px*6, px*12, '#2d2738');
+
+    // Броня (Кираса)
+    drawPixelRect(ctx, x + px*4, y + px*12 + bounce, width - px*8, height - px*20, '#6980CC'); 
+    drawPixelRect(ctx, x + px*5, y + px*13 + bounce, width - px*10, px*4, '#8fa1e0'); // Блик на груди
     
-    // Шлем
-    drawPixelRect(ctx, x + px*6, y + bounce, width - px*12, px*16, '#2d2738'); // база шлема
-    drawPixelRect(ctx, x + px*6, y - px*4 + bounce, width - px*12, px*4, '#B33E3E'); // Плюмаж (перо)
+    // Наплечники (Pauldrons)
+    drawPixelRect(ctx, x + px*2, y + px*10 + bounce, px*10, px*8, '#3a3345'); // левый
+    drawPixelRect(ctx, x + width - px*12, y + px*10 + bounce, px*10, px*8, '#3a3345'); // правый
+    
+    // Шлем с визором
+    drawPixelRect(ctx, x + px*8, y - px*2 + bounce, width - px*16, px*16, '#1a1621'); // база
+    drawPixelRect(ctx, x + px*10, y + px*2 + bounce, width - px*20, px*4, '#2d2738'); // прорезь
+    
+    // Плюмаж (перо на шлеме)
+    drawPixelRect(ctx, x + width/2 - px, y - px*8 + bounce, px*4, px*8, '#B33E3E');
     
     // Щит
-    drawPixelRect(ctx, x + width - px*6, y + px*16 + bounce, px*4, px*16, '#3a3345');
-    drawPixelRect(ctx, x + width - px*4, y + px*18 + bounce, px*2, px*12, '#6980CC');
+    const shieldX = x + width - px*6;
+    drawPixelRect(ctx, shieldX, y + px*12 + bounce, px*10, px*24, '#3a3345'); // основа щита
+    drawPixelRect(ctx, shieldX + px, y + px*14 + bounce, px*6, px*20, '#6980CC'); // герб/блик на щите
 
-    // Два горящих глаза в прорези шлема
-    ctx.shadowBlur = 10;
+    // Два горящих глаза
+    ctx.shadowBlur = 12;
     ctx.shadowColor = '#00FFFF';
-    drawPixelRect(ctx, x + width - px*15, y + px*7 + bounce, px*3, px*3, '#00FFFF');
-    drawPixelRect(ctx, x + width - px*9, y + px*7 + bounce, px*3, px*3, '#00FFFF');
+    drawPixelRect(ctx, x + px*11, y + px*4 + bounce, px*3, px*3, '#00FFFF');
+    drawPixelRect(ctx, x + px*18, y + px*4 + bounce, px*3, px*3, '#00FFFF');
     ctx.shadowBlur = 0;
   };
 
@@ -168,19 +188,19 @@ const GameCanvas: React.FC = () => {
       const sx = m.x + (i * 15) + 5;
       const sy = m.y - 10 + Math.sin(time * 0.1 + i) * 5;
       drawPixelRect(ctx, sx, sy, 8, 10, '#5c242c');
-      drawPixelRect(ctx, sx + 2, sy - 4, 4, 4, '#ff0000'); // маленькие глазки на щупальцах
+      drawPixelRect(ctx, sx + 2, sy - 4, 4, 4, '#ff0000'); // маленькие глазки
     }
     
     // Главный Глаз
     drawPixelRect(ctx, m.x + px*4, m.y + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
     const eyeY = Math.sin(time * 0.1) * 6;
     drawPixelRect(ctx, m.x + m.width/2 - px*3, m.y + m.height/2 - px*3 + eyeY, px*6, px*6, '#1a1621'); // зрачок
-    drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2 - px*2 + eyeY, px, px, '#ffffff'); // блик в зрачке
+    drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2 - px*2 + eyeY, px, px, '#ffffff'); // блик
   };
 
   const drawMimic = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
-    const open = Math.abs(Math.sin(gameRef.current.frameCount * 0.04)) * 10;
+    const open = Math.abs(Math.sin(gameRef.current.frameCount * 0.04)) * 12; // Замедленная анимация
     
     // Деревянный сундук
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115'); // база
@@ -194,10 +214,10 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, m.x + px, m.y + m.height/2 - px, m.width - px*2, open, '#000000');
     if (open > 4) {
       // Язык мимика
-      drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2, px*3, open + 6, '#B33E3E');
+      drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2, px*3, open + 8, '#B33E3E');
       // Зубы
-      drawPixelRect(ctx, m.x + px*4, m.y + m.height/2, px*2, px*2, '#ffffff');
-      drawPixelRect(ctx, m.x + m.width - px*6, m.y + m.height/2, px*2, px*2, '#ffffff');
+      drawPixelRect(ctx, m.x + px*4, m.y + m.height/2, px*3, px*3, '#ffffff');
+      drawPixelRect(ctx, m.x + m.width - px*7, m.y + m.height/2, px*3, px*3, '#ffffff');
     }
   };
 
@@ -207,38 +227,35 @@ const GameCanvas: React.FC = () => {
     const color = m.isDashing ? '#ffcccc' : '#d0d0d0';
     
     // Череп
-    drawPixelRect(ctx, m.x + px*6, m.y + walk, px*10, px*10, color);
+    drawPixelRect(ctx, m.x + px*6, m.y + walk, px*12, px*12, color);
     // Глазницы
-    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*3, px*2, px*2, '#FF0000');
-    drawPixelRect(ctx, m.x + px*12, m.y + walk + px*3, px*2, px*2, '#FF0000');
+    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*4, px*3, px*3, '#FF0000');
+    drawPixelRect(ctx, m.x + px*13, m.y + walk + px*4, px*3, px*3, '#FF0000');
     
     // Грудная клетка
-    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*12, px*6, px*10, color);
-    drawPixelRect(ctx, m.x + px*7, m.y + walk + px*14, px*8, px, '#1a1621'); // разрез ребер
+    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*14, px*8, px*12, color);
+    drawPixelRect(ctx, m.x + px*7, m.y + walk + px*16, px*10, px, '#1a1621'); // ребра
     
     // Меч
-    drawPixelRect(ctx, m.x - px*4, m.y + walk + px*16, px*12, px*3, '#5c5c5c');
+    drawPixelRect(ctx, m.x - px*4, m.y + walk + px*18, px*14, px*4, '#5c5c5c');
   };
 
   const drawSlime = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
-    const squash = Math.sin(gameRef.current.frameCount * 0.15) * 6;
+    const squash = Math.sin(gameRef.current.frameCount * 0.1) * 8;
     
-    ctx.globalAlpha = 0.7;
-    // Тело слизня
+    ctx.globalAlpha = 0.6;
     drawPixelRect(ctx, m.x, m.y + squash, m.width, m.height - squash, '#4CAF50');
-    // Ядро/пузырьки внутри
     ctx.globalAlpha = 1.0;
-    drawPixelRect(ctx, m.x + m.width/2 - px*2, m.y + m.height/2 + squash, px*4, px*4, '#2E7D32');
-    drawPixelRect(ctx, m.x + px*4, m.y + px*6 + squash, px*2, px*2, '#ffffff'); // блик
+    drawPixelRect(ctx, m.x + m.width/2 - px*2, m.y + m.height/2 + squash, px*5, px*5, '#2E7D32'); // ядро
+    drawPixelRect(ctx, m.x + px*4, m.y + px*6 + squash, px*3, px*3, '#ffffff'); // блик
   };
 
   const drawDragon = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
-    // Тело дракона
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#833440');
-    drawPixelRect(ctx, m.x + m.width - px*8, m.y - px*4, px*10, px*10, '#5c242c'); // голова
-    drawPixelRect(ctx, m.x + m.width - px*4, m.y, px*2, px*2, '#ffff00'); // глаз
+    drawPixelRect(ctx, m.x + m.width - px*10, m.y - px*6, px*12, px*12, '#5c242c'); // голова
+    drawPixelRect(ctx, m.x + m.width - px*6, m.y, px*3, px*3, '#ffff00'); // глаз
   };
 
   const submitScore = useCallback(async (finalScore: number) => {
@@ -259,7 +276,7 @@ const GameCanvas: React.FC = () => {
     const { player, monsters, state, lastSpawn, frameCount } = gameRef.current;
     if (state !== 'PLAYING') return;
 
-    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 50);
+    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 60);
     gameRef.current.bgOffset += currentSpeed;
 
     player.vy += GRAVITY;
@@ -274,20 +291,20 @@ const GameCanvas: React.FC = () => {
     }
 
     // Спавн монстров
-    const spawnRate = Math.max(35, 120 - (gameRef.current.score / 12));
-    if (frameCount - lastSpawn > spawnRate + Math.random() * 50) {
+    const spawnRate = Math.max(40, 130 - (gameRef.current.score / 15));
+    if (frameCount - lastSpawn > spawnRate + Math.random() * 60) {
       const rand = Math.random();
       let type: MonsterType = 'MIMIC';
-      if (gameRef.current.score > 500 && rand > 0.9) type = 'DRAGON';
-      else if (gameRef.current.score > 300 && rand > 0.75) type = 'SKELETON';
-      else if (gameRef.current.score > 150 && rand > 0.55) type = 'SLIME';
-      else if (rand > 0.25) type = 'BEHOLDER';
+      if (gameRef.current.score > 600 && rand > 0.92) type = 'DRAGON';
+      else if (gameRef.current.score > 350 && rand > 0.78) type = 'SKELETON';
+      else if (gameRef.current.score > 200 && rand > 0.58) type = 'SLIME';
+      else if (rand > 0.3) type = 'BEHOLDER';
 
       let mY = GROUND_Y - 48;
       let mW = 48, mH = 48;
 
-      if (type === 'BEHOLDER') mY = GROUND_Y - 140; // Парят высоко для прохода снизу
-      if (type === 'DRAGON') { mY = GROUND_Y - 180; mW = 90; mH = 60; }
+      if (type === 'BEHOLDER') mY = GROUND_Y - 120; // Парят выше
+      if (type === 'DRAGON') { mY = GROUND_Y - 180; mW = 100; mH = 70; }
       if (type === 'SLIME') { mY = GROUND_Y - 24; mH = 24; }
 
       monsters.push({
@@ -297,8 +314,8 @@ const GameCanvas: React.FC = () => {
         y: mY,
         width: mW,
         height: mH,
-        speed: type === 'SLIME' ? currentSpeed * 0.7 : currentSpeed,
-        phase: Math.random() * 100,
+        speed: type === 'SLIME' ? currentSpeed * 0.75 : currentSpeed,
+        phase: Math.random() * Math.PI * 2,
         baseY: mY
       });
       gameRef.current.lastSpawn = frameCount;
@@ -307,22 +324,22 @@ const GameCanvas: React.FC = () => {
     for (let i = monsters.length - 1; i >= 0; i--) {
       const m = monsters[i];
       
-      // Логика парения Бихолдера
+      // Плавное парение Бихолдера в воздушном коридоре
       if (m.type === 'BEHOLDER') {
-        const hover = Math.sin(frameCount * 0.05 + (m.phase || 0)) * 40;
-        m.y = (m.baseY || 0) + hover;
+        const hoverRange = 30;
+        m.y = (m.baseY || 0) + Math.sin(frameCount * 0.06 + (m.phase || 0)) * hoverRange;
       }
       
       if (m.type === 'SKELETON') {
         const d = m.x - player.x;
-        if (d < 200 && d > 20) { m.speed = currentSpeed * 1.5; m.isDashing = true; }
+        if (d < 220 && d > 20) { m.speed = currentSpeed * 1.4; m.isDashing = true; }
         else { m.speed = currentSpeed; m.isDashing = false; }
       }
 
       m.x -= m.speed;
 
-      // Столкновения
-      const pad = 12;
+      // Столкновения с уменьшенными хитбоксами для честности
+      const pad = 14;
       if (
         player.x < m.x + m.width - pad &&
         player.x + player.width - pad > m.x &&
@@ -337,7 +354,7 @@ const GameCanvas: React.FC = () => {
 
       if (m.x + m.width < 0) {
         monsters.splice(i, 1);
-        gameRef.current.score += 10;
+        gameRef.current.score += 15;
         setScore(Math.floor(gameRef.current.score));
       }
     }
@@ -362,10 +379,10 @@ const GameCanvas: React.FC = () => {
 
     drawHero(ctx, gameRef.current.player);
 
-    // Виньетка и освещение
+    // Виньетка и финальное освещение
     const vig = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH);
     vig.addColorStop(0, 'transparent');
-    vig.addColorStop(1, 'rgba(0,0,0,0.7)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.75)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
@@ -378,11 +395,11 @@ const GameCanvas: React.FC = () => {
       ctx.fillText('PIXELDUNGEON DASH', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
       ctx.font = '12px "Press Start 2P"';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('CLICK TO START', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
+      ctx.fillText('CLICK TO START', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 50);
     }
 
     if (gameRef.current.state === 'GAME_OVER') {
-      ctx.fillStyle = 'rgba(20,0,0,0.9)';
+      ctx.fillStyle = 'rgba(20,0,0,0.92)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#FF4444';
       ctx.font = '32px "Press Start 2P"';
@@ -390,7 +407,8 @@ const GameCanvas: React.FC = () => {
       ctx.fillText('WASTED', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
       ctx.font = '12px "Press Start 2P"';
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('CLICK TO RESTART', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
+      ctx.fillText(`SCORE: ${Math.floor(gameRef.current.score)}M`, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
+      ctx.fillText('CLICK TO RESTART', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 70);
     }
   }, []);
 
@@ -430,9 +448,9 @@ const GameCanvas: React.FC = () => {
   }, [gameState]);
 
   return (
-    <div className="flex flex-col items-center w-full max-w-3xl mx-auto p-4 gap-6">
+    <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 gap-6">
       <div 
-        className="relative w-full aspect-[2/1] bg-[#0f0d12] border-4 border-[#2d2738] overflow-hidden cursor-pointer shadow-[0_0_50px_rgba(98,38,179,0.3)]"
+        className="relative w-full aspect-[2/1] bg-[#0f0d12] border-4 border-[#2d2738] overflow-hidden cursor-pointer shadow-[0_0_60px_rgba(98,38,179,0.35)]"
         onClick={handleInput}
       >
         <canvas
@@ -443,20 +461,21 @@ const GameCanvas: React.FC = () => {
         />
         
         {gameState === 'PLAYING' && (
-          <div className="absolute top-4 left-4 font-body text-[10px] text-primary/80">
-            DEPTH: {score}m | SPEED: {((INITIAL_MONSTER_SPEED + (score / 50)) / INITIAL_MONSTER_SPEED).toFixed(1)}x
+          <div className="absolute top-4 left-4 font-body text-[10px] text-primary/90 flex flex-col gap-1">
+            <span>DEPTH: {score}m</span>
+            <span>SPEED: {((INITIAL_MONSTER_SPEED + (score / 60)) / INITIAL_MONSTER_SPEED).toFixed(1)}x</span>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-2 w-full gap-4">
-        <div className="bg-[#1a1621] p-4 border-b-4 border-primary">
-          <p className="text-[8px] text-gray-500 uppercase">Current</p>
-          <p className="text-xl text-white">{score}m</p>
+        <div className="bg-[#1a1621] p-5 border-b-4 border-primary shadow-lg">
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Current Depth</p>
+          <p className="text-2xl text-white font-headline">{score}m</p>
         </div>
-        <div className="bg-[#1a1621] p-4 border-b-4 border-secondary text-right">
-          <p className="text-[8px] text-gray-500 uppercase">Record</p>
-          <p className="text-xl text-secondary">{highScore}m</p>
+        <div className="bg-[#1a1621] p-5 border-b-4 border-secondary text-right shadow-lg">
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Best Record</p>
+          <p className="text-2xl text-secondary font-headline">{highScore}m</p>
         </div>
       </div>
     </div>
