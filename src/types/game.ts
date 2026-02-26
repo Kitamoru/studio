@@ -21,6 +21,7 @@ export interface Monster extends GameObject {
 export interface Player extends GameObject {
   vy: number;
   isJumping: boolean;
+  jumpsRemaining: number;
   frame: number;
 }
 
