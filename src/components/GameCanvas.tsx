@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -75,19 +76,22 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#0f0d12';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Far bricks (Parallax layer 1)
+    // Far bricks (Parallax layer 1) - Natural staggered look
     const p1 = offset * 0.15;
     const brickW = 60;
     const brickH = 30;
-    ctx.fillStyle = '#1a1621';
     for (let row = 0; row < GROUND_Y / brickH; row++) {
-      const xOffset = (row % 2) * (brickW / 2) - (p1 % brickW);
-      for (let x = xOffset; x < VIRTUAL_WIDTH + brickW; x += brickW) {
-        ctx.fillRect(x + 1, row * brickH + 1, brickW - 2, brickH - 2);
-        // Subtle brick highlight
-        ctx.fillStyle = '#1e1a26';
-        ctx.fillRect(x + 2, row * brickH + 2, brickW / 3, 2);
-        ctx.fillStyle = '#1a1621';
+      const xOffset = (row % 2 === 0 ? 0 : brickW / 2) - (p1 % brickW);
+      for (let x = xOffset - brickW; x < VIRTUAL_WIDTH + brickW; x += brickW) {
+        // Deterministic variation based on position
+        const variant = Math.abs(Math.floor((x + p1) / brickW) + row) % 5;
+        ctx.fillStyle = variant === 0 ? '#14111a' : '#1a1621'; 
+        ctx.fillRect(x, row * brickH, brickW, brickH);
+        
+        // Brick borders/cracks
+        ctx.strokeStyle = '#0a080d';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, row * brickH, brickW, brickH);
       }
     }
 
@@ -96,10 +100,11 @@ const GameCanvas: React.FC = () => {
     const mBrickW = 80;
     const mBrickH = 40;
     for (let row = 0; row < GROUND_Y / mBrickH; row++) {
-      const xOffset = (row % 2) * (mBrickW / 2) - (p2 % mBrickW);
-      for (let x = xOffset; x < VIRTUAL_WIDTH + mBrickW; x += mBrickW) {
+      const xOffset = (row % 2 === 0 ? 0 : mBrickW / 2) - (p2 % mBrickW);
+      for (let x = xOffset - mBrickW; x < VIRTUAL_WIDTH + mBrickW; x += mBrickW) {
         ctx.fillStyle = '#25202d';
         ctx.fillRect(x + 2, row * mBrickH + 2, mBrickW - 4, mBrickH - 4);
+        
         // Highlight top and left for depth
         ctx.fillStyle = '#2d2738';
         ctx.fillRect(x + 2, row * mBrickH + 2, mBrickW - 4, 2);
@@ -193,15 +198,17 @@ const GameCanvas: React.FC = () => {
 
   const drawBeholder = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 3;
-    const float = Math.sin(gameRef.current.frameCount * 0.1) * 10;
-    const eyeMovement = Math.sin(gameRef.current.frameCount * 0.15) * 6; // Глаз движется вверх-вниз
+    // Oscillation of the whole body
+    const float = Math.sin(gameRef.current.frameCount * 0.1) * 15;
+    // Oscillation of the eye (faster or different phase)
+    const eyeMovement = Math.sin(gameRef.current.frameCount * 0.2) * 8; 
 
     // Glow
-    const grad = ctx.createRadialGradient(m.x + m.width/2, m.y + m.height/2 + float, 5, m.x + m.width/2, m.y + m.height/2 + float, 40);
+    const grad = ctx.createRadialGradient(m.x + m.width/2, m.y + m.height/2 + float, 5, m.x + m.width/2, m.y + m.height/2 + float, 50);
     grad.addColorStop(0, 'rgba(179, 62, 62, 0.4)');
     grad.addColorStop(1, 'transparent');
     ctx.fillStyle = grad;
-    ctx.fillRect(m.x - 40, m.y + float - 40, m.width + 80, m.height + 80);
+    ctx.fillRect(m.x - 50, m.y + float - 50, m.width + 100, m.height + 100);
 
     // Body
     drawPixelRect(ctx, m.x, m.y + float, m.width, m.height, '#833440');
@@ -210,7 +217,7 @@ const GameCanvas: React.FC = () => {
     // Sclera
     drawPixelRect(ctx, m.x + px*3, m.y + px*3 + float, m.width - px*6, m.height - px*6, '#FFFFFF');
     
-    // Pupil (Moving)
+    // Pupil (Moving dynamically)
     drawPixelRect(ctx, m.x + px*6, m.y + px*6 + float + eyeMovement, px*3, px*4, '#000000');
     // Pupil glint
     drawPixelRect(ctx, m.x + px*7, m.y + px*7 + float + eyeMovement, px, px, '#FFFFFF');
@@ -269,7 +276,7 @@ const GameCanvas: React.FC = () => {
         }),
       });
     } catch (err) {
-      // Handled by global listener if implemented
+      // Handled by global listener
     }
   }, [telegramUser]);
 
@@ -277,7 +284,7 @@ const GameCanvas: React.FC = () => {
     const { player, monsters, particles, state, lastSpawn, frameCount } = gameRef.current;
     if (state !== 'PLAYING') return;
 
-    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 15);
+    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 20);
     gameRef.current.bgOffset += currentSpeed;
 
     player.vy += GRAVITY;
@@ -291,46 +298,49 @@ const GameCanvas: React.FC = () => {
     }
 
     // Dust particles
-    if (frameCount % 6 === 0) {
+    if (frameCount % 8 === 0) {
       particles.push({
         x: VIRTUAL_WIDTH,
         y: Math.random() * VIRTUAL_HEIGHT,
-        vx: -(currentSpeed * 0.6 + Math.random() * 3),
-        vy: (Math.random() - 0.5) * 0.8,
+        vx: -(currentSpeed * 0.6 + Math.random() * 2),
+        vy: (Math.random() - 0.5) * 0.5,
         life: 1,
-        color: 'rgba(255,255,255,0.08)'
+        color: 'rgba(255,255,255,0.05)'
       });
     }
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx; p.y += p.vy; p.life -= 0.007;
+      p.x += p.vx; p.y += p.vy; p.life -= 0.005;
       if (p.life <= 0 || p.x < -10) particles.splice(i, 1);
     }
 
     // Dynamic spawning logic
-    const baseSpawnRate = 90;
-    const spawnThreshold = Math.max(20, baseSpawnRate - (gameRef.current.score / 3));
-    if (frameCount - lastSpawn > spawnThreshold + Math.random() * 50) {
+    const baseSpawnRate = 100;
+    const spawnThreshold = Math.max(25, baseSpawnRate - (gameRef.current.score / 4));
+    
+    if (frameCount - lastSpawn > spawnThreshold + Math.random() * 40) {
       const rand = Math.random();
       let type: MonsterType = 'MIMIC';
       
-      // Increased variety and difficulty as score increases
-      if (gameRef.current.score > 150 && rand > 0.85) type = 'DRAGON';
-      else if (gameRef.current.score > 80 && rand > 0.65) type = 'SKELETON';
-      else if (gameRef.current.score > 30 && rand > 0.35) type = 'BEHOLDER';
+      // Improved logic for monster diversity and difficulty
+      if (gameRef.current.score > 200 && rand > 0.85) type = 'DRAGON';
+      else if (gameRef.current.score > 100 && rand > 0.7) type = 'SKELETON';
+      else if (gameRef.current.score > 10 && rand > 0.3) type = 'BEHOLDER';
+      else if (rand > 0.6) type = 'BEHOLDER'; // Beholders can appear early too
+      else type = 'MIMIC';
 
       let monsterY = GROUND_Y - 48;
-      if (type === 'BEHOLDER') monsterY = GROUND_Y - 150 - Math.random() * 50;
-      if (type === 'DRAGON') monsterY = GROUND_Y - 240;
+      if (type === 'BEHOLDER') monsterY = GROUND_Y - 160 - Math.random() * 60;
+      if (type === 'DRAGON') monsterY = GROUND_Y - 260;
 
       monsters.push({
-        id: Math.random().toString(36),
+        id: Math.random().toString(36).substr(2, 9),
         type,
         x: VIRTUAL_WIDTH,
         y: monsterY,
-        width: type === 'DRAGON' ? 72 : 48,
+        width: type === 'DRAGON' ? 80 : 48,
         height: 48,
-        speed: type === 'SKELETON' ? currentSpeed * 1.4 : currentSpeed,
+        speed: type === 'SKELETON' ? currentSpeed * 1.3 : currentSpeed,
       });
       gameRef.current.lastSpawn = frameCount;
     }
@@ -339,12 +349,16 @@ const GameCanvas: React.FC = () => {
       const m = monsters[i];
       m.x -= m.speed;
       
-      const hitBoxPadding = 12;
+      // Hitbox adjustment for float oscillation
+      const floatOffset = m.type === 'BEHOLDER' ? Math.sin(frameCount * 0.1) * 15 : 0;
+      const effectiveY = m.y + floatOffset;
+
+      const hitBoxPadding = 14;
       if (
         player.x < m.x + m.width - hitBoxPadding &&
         player.x + player.width - hitBoxPadding > m.x &&
-        player.y < m.y + m.height - hitBoxPadding &&
-        player.y + player.height - hitBoxPadding > m.y
+        player.y < effectiveY + m.height - hitBoxPadding &&
+        player.y + player.height - hitBoxPadding > effectiveY
       ) {
         gameRef.current.state = 'GAME_OVER';
         setGameState('GAME_OVER');
@@ -354,7 +368,7 @@ const GameCanvas: React.FC = () => {
 
       if (m.x + m.width < 0) {
         monsters.splice(i, 1);
-        gameRef.current.score += 1.5; // Faster scoring for harder monsters
+        gameRef.current.score += 2; 
         setScore(Math.floor(gameRef.current.score));
       }
     }
@@ -384,14 +398,14 @@ const GameCanvas: React.FC = () => {
     });
 
     // High quality vignetting
-    const vignette = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 120, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH/1.1);
+    const vignette = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH/1.1);
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.9)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.85)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
     if (gameRef.current.state === 'START') {
-      ctx.fillStyle = 'rgba(0,0,0,0.85)';
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
       ctx.font = '24px "Press Start 2P"';
@@ -403,7 +417,7 @@ const GameCanvas: React.FC = () => {
     }
 
     if (gameRef.current.state === 'GAME_OVER') {
-      ctx.fillStyle = 'rgba(20,0,0,0.92)';
+      ctx.fillStyle = 'rgba(20,0,0,0.9)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#FF4444';
       ctx.font = '28px "Press Start 2P"';
@@ -474,7 +488,7 @@ const GameCanvas: React.FC = () => {
         
         {gameState === 'PLAYING' && (
           <div className="absolute top-4 left-4 font-body text-[10px] text-primary/90 animate-pulse drop-shadow-md">
-            DEPTH: {score}m | LVL: {Math.floor(score/50) + 1}
+            DEPTH: {score}m | SPEED: {(INITIAL_MONSTER_SPEED + (score / 20)).toFixed(1)}
           </div>
         )}
       </div>
