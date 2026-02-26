@@ -54,25 +54,42 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D, offset: number, frameCount: number) => {
+    // Deep background
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Parallax Bricks
-    const p1 = offset * 0.2;
-    const brickW = 60;
-    const brickH = 30;
+    // 1. Back Wall - Parallax Bricks
+    const p1 = offset * 0.3;
+    const brickW = 80;
+    const brickH = 40;
     for (let row = 0; row < GROUND_Y / brickH; row++) {
       const xOffset = (row % 2 === 0 ? 0 : brickW / 2) - (p1 % brickW);
       for (let x = xOffset - brickW; x < VIRTUAL_WIDTH + brickW; x += brickW) {
-        const seed = Math.floor((x + p1) / brickW) + row;
-        const colorVar = (seed % 3) * 5;
-        ctx.fillStyle = `rgb(${15 + colorVar}, ${12 + colorVar}, ${20 + colorVar})`;
-        ctx.fillRect(x, row * brickH, brickW, brickH);
-        // Bevel effects
-        drawPixelRect(ctx, x, row * brickH, brickW, 1, 'rgba(255,255,255,0.05)');
-        drawPixelRect(ctx, x, row * brickH, 1, brickH, 'rgba(255,255,255,0.05)');
-        drawPixelRect(ctx, x, row * brickH + brickH - 1, brickW, 1, 'rgba(0,0,0,0.3)');
+        ctx.fillStyle = (Math.floor((x + p1) / brickW) + row) % 3 === 0 ? '#1a1621' : '#14111a';
+        ctx.fillRect(x, row * brickH, brickW - 2, brickH - 2);
       }
+    }
+
+    // 2. Pillars & Torches
+    const p2 = offset * 0.6;
+    const pillarSpacing = 300;
+    for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
+      // Pillar body
+      drawPixelRect(ctx, x, 0, 40, GROUND_Y, '#2d2738');
+      drawPixelRect(ctx, x + 5, 0, 5, GROUND_Y, '#3a3345'); // highlight
+      
+      // Torch holder
+      const torchY = 150;
+      drawPixelRect(ctx, x + 10, torchY, 20, 10, '#1a1621');
+      
+      // Animated Flame
+      const flicker = Math.sin(frameCount * 0.2) * 3;
+      const flameColor = frameCount % 10 < 5 ? '#ff8c00' : '#ff4500';
+      ctx.shadowBlur = 15 + flicker;
+      ctx.shadowColor = '#ff8c00';
+      drawPixelRect(ctx, x + 15, torchY - 15 + flicker, 10, 15, flameColor);
+      drawPixelRect(ctx, x + 18, torchY - 25 + flicker, 4, 10, '#ffff00');
+      ctx.shadowBlur = 0;
     }
 
     // Ground
@@ -81,8 +98,10 @@ const GameCanvas: React.FC = () => {
     groundGrad.addColorStop(1, '#0a080d');
     ctx.fillStyle = groundGrad;
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
-    for (let x = -(offset % 40); x < VIRTUAL_WIDTH; x += 40) {
-      drawPixelRect(ctx, x, GROUND_Y, 20, 2, 'rgba(255,255,255,0.1)');
+    
+    // Floor highlights
+    for (let x = -(offset % 60); x < VIRTUAL_WIDTH; x += 60) {
+      drawPixelRect(ctx, x, GROUND_Y, 30, 2, 'rgba(255,255,255,0.05)');
     }
   };
 
@@ -97,79 +116,50 @@ const GameCanvas: React.FC = () => {
     ctx.ellipse(x + width/2, GROUND_Y, 20, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cape (layered with shading)
+    // Cape
     const capeWave = Math.sin(frame * 0.1) * 5;
     drawPixelRect(ctx, x - px*2 + capeWave, y + px*10 + bounce, px*5, height - px*12, '#833440');
-    drawPixelRect(ctx, x - px + capeWave, y + px*12 + bounce, px*3, height - px*16, '#5c242c');
 
-    // Legs
-    const legMove = Math.sin(frame * 0.2) * 5;
-    drawPixelRect(ctx, x + px*4, y + height - px*6 + legMove, px*4, px*6, '#1a1621');
-    drawPixelRect(ctx, x + width - px*8, y + height - px*6 - legMove, px*4, px*6, '#1a1621');
-
-    // Body Armor
-    drawPixelRect(ctx, x + px*3, y + px*12 + bounce, width - px*6, px*16, '#6980CC'); // Base
-    drawPixelRect(ctx, x + px*5, y + px*14 + bounce, width - px*10, px*4, '#8fa3e8'); // Highlight
+    // Body & Armor
+    drawPixelRect(ctx, x + px*4, y + px*12 + bounce, width - px*8, height - px*18, '#6980CC'); 
     
-    // Shield
-    drawPixelRect(ctx, x - px, y + px*16 + bounce, px*6, px*12, '#2d2738');
-    drawPixelRect(ctx, x + 1, y + px*17 + bounce, px*3, px*10, '#4a4359');
-
     // Helmet
-    const headY = y + bounce;
-    drawPixelRect(ctx, x + px*5, headY, width - px*10, px*12, '#2d2738'); // Helmet base
-    drawPixelRect(ctx, x + px*5, headY, width - px*10, px*3, '#833440'); // Plume base
-    drawPixelRect(ctx, x + px*8, headY - px*4, px*8, px*4, '#B33E3E'); // Plume top
+    drawPixelRect(ctx, x + px*6, y + bounce, width - px*12, px*14, '#2d2738');
+    drawPixelRect(ctx, x + px*6, y + bounce, width - px*12, px*3, '#B33E3E'); // Plume
     
-    // Visor & Eyes
-    drawPixelRect(ctx, x + px*6, headY + px*4, width - px*12, px*4, '#1a1621'); // Visor
+    // Eyes (Two glowing eyes)
     ctx.shadowBlur = 8;
     ctx.shadowColor = '#00FFFF';
-    drawPixelRect(ctx, x + width - px*14, headY + px*5, px*2, px*2, '#00FFFF'); // Eye 1
-    drawPixelRect(ctx, x + width - px*10, headY + px*5, px*2, px*2, '#00FFFF'); // Eye 2
+    drawPixelRect(ctx, x + width - px*14, y + px*5 + bounce, px*2, px*2, '#00FFFF');
+    drawPixelRect(ctx, x + width - px*10, y + px*5 + bounce, px*2, px*2, '#00FFFF');
     ctx.shadowBlur = 0;
   };
 
   const drawBeholder = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
     const time = gameRef.current.frameCount;
-    const hover = Math.sin(time * 0.08 + (m.phase || 0)) * 50;
-    const ry = (m.baseY || 0) + hover;
-
-    // Tentacles/Eyestalks
-    for (let i = 0; i < 4; i++) {
-      const tx = m.x + (i * 12);
-      const ty = ry - 10 + Math.sin(time * 0.1 + i) * 10;
-      drawPixelRect(ctx, tx, ty, px*2, px*4, '#5c242c');
-      drawPixelRect(ctx, tx - 1, ty - 2, px*3, px*2, '#B33E3E');
-    }
-
-    // Main Body
-    drawPixelRect(ctx, m.x, ry, m.width, m.height, '#5c242c');
-    drawPixelRect(ctx, m.x + px, ry + px, m.width - px*2, m.height - px*2, '#833440');
     
-    // The Eye
-    drawPixelRect(ctx, m.x + px*4, ry + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
-    const eyeMove = Math.sin(time * 0.1) * 4;
-    drawPixelRect(ctx, m.x + m.width/2 - px*3, ry + m.height/2 - px*3 + eyeMove, px*6, px*6, '#1a1621'); // Iris
-    drawPixelRect(ctx, m.x + m.width/2 - px, ry + m.height/2 - px + eyeMove, px, px, '#FFFFFF'); // Glint
+    // Simple classic Beholder body
+    drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#5c242c');
+    drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#833440');
+    
+    // Main Eye
+    drawPixelRect(ctx, m.x + px*4, m.y + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
+    const eyeY = Math.sin(time * 0.1) * 4;
+    drawPixelRect(ctx, m.x + m.width/2 - px*3, m.y + m.height/2 - px*3 + eyeY, px*6, px*6, '#1a1621'); // Pupil
   };
 
   const drawMimic = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
-    const open = Math.abs(Math.sin(gameRef.current.frameCount * 0.04)) * 10;
+    const open = Math.abs(Math.sin(gameRef.current.frameCount * 0.05)) * 8; // Slower, calmer animation
     
-    drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115'); // Dark wood
-    drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#5c3321'); // Lighter wood
-    
-    // Iron bands
-    drawPixelRect(ctx, m.x + px*2, m.y, px*3, m.height, '#2d2738');
-    drawPixelRect(ctx, m.x + m.width - px*5, m.y, px*3, m.height, '#2d2738');
+    drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
+    drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#5c3321');
     
     // Mouth
     drawPixelRect(ctx, m.x + px, m.y + m.height/2 - px, m.width - px*2, open, '#000000');
-    if (open > 4) {
-      drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2, px*2, open + 10, '#B33E3E'); // Tongue
+    if (open > 3) {
+      drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2, px*2, open + 4, '#B33E3E'); // Tongue
     }
   };
 
@@ -177,42 +167,20 @@ const GameCanvas: React.FC = () => {
     const px = 2;
     const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
     const color = m.isDashing ? '#ffcccc' : '#d0d0d0';
-
-    // Skull
-    drawPixelRect(ctx, m.x + px*6, m.y + walk, px*10, px*10, color);
-    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*3, px*2, px*2, '#FF0000'); // Red eyes
-    drawPixelRect(ctx, m.x + px*12, m.y + walk + px*3, px*2, px*2, '#FF0000');
-
-    // Ribs
-    drawPixelRect(ctx, m.x + px*7, m.y + px*10 + walk, px*8, px*8, color);
-    drawPixelRect(ctx, m.x + px*7, m.y + px*12 + walk, px*8, px, '#1a1621'); // Rib gap
-    
-    // Sword
-    drawPixelRect(ctx, m.x + m.width, m.y + px*12 + walk, px*2, px*14, '#a0a0a0');
+    drawPixelRect(ctx, m.x + px*6, m.y + walk, px*10, px*10, color); // skull
+    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*3, px*2, px*2, '#FF0000'); // eyes
   };
 
   const drawSlime = (ctx: CanvasRenderingContext2D, m: Monster) => {
-    const px = 2;
     const squash = Math.sin(gameRef.current.frameCount * 0.1) * 4;
-    ctx.globalAlpha = 0.8;
+    ctx.globalAlpha = 0.7;
     drawPixelRect(ctx, m.x, m.y + squash, m.width, m.height - squash, '#4CAF50');
-    drawPixelRect(ctx, m.x + px*2, m.y + squash + px*2, m.width - px*4, m.height - squash - px*4, '#81C784');
     ctx.globalAlpha = 1.0;
-    // Internal bubbles
-    drawPixelRect(ctx, m.x + px*4, m.y + squash + px*6, px, px, 'rgba(255,255,255,0.4)');
   };
 
   const drawDragon = (ctx: CanvasRenderingContext2D, m: Monster) => {
-    const px = 2;
-    const wing = Math.sin(gameRef.current.frameCount * 0.05) * 20;
-    
-    // Wings
-    drawPixelRect(ctx, m.x + 10, m.y - wing, 40, 20, '#5c242c');
-    // Body
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#833440');
-    // Head
-    drawPixelRect(ctx, m.x + m.width - 10, m.y - 10, 30, 30, '#833440');
-    drawPixelRect(ctx, m.x + m.width + 10, m.y - 2, 4, 4, '#FFFF00'); // Eye
+    drawPixelRect(ctx, m.x + m.width - 10, m.y - 5, 20, 20, '#5c242c'); // head
   };
 
   const submitScore = useCallback(async (finalScore: number) => {
@@ -244,24 +212,24 @@ const GameCanvas: React.FC = () => {
       player.y = GROUND_Y - player.height;
       player.vy = 0;
       player.isJumping = false;
-      player.jumpsRemaining = 2;
+      player.jumpsRemaining = 2; // Double jump reset
     }
 
     // Spawn
-    const spawnRate = Math.max(30, 100 - (gameRef.current.score / 10));
-    if (frameCount - lastSpawn > spawnRate + Math.random() * 40) {
+    const spawnRate = Math.max(35, 120 - (gameRef.current.score / 12));
+    if (frameCount - lastSpawn > spawnRate + Math.random() * 50) {
       const rand = Math.random();
       let type: MonsterType = 'MIMIC';
       if (gameRef.current.score > 500 && rand > 0.9) type = 'DRAGON';
       else if (gameRef.current.score > 300 && rand > 0.75) type = 'SKELETON';
       else if (gameRef.current.score > 150 && rand > 0.55) type = 'SLIME';
-      else if (rand > 0.3) type = 'BEHOLDER';
+      else if (rand > 0.25) type = 'BEHOLDER';
 
       let mY = GROUND_Y - 48;
       let mW = 48, mH = 48;
 
-      if (type === 'BEHOLDER') mY = GROUND_Y - 140; 
-      if (type === 'DRAGON') { mY = GROUND_Y - 200; mW = 100; mH = 60; }
+      if (type === 'BEHOLDER') mY = GROUND_Y - 120; // Default height corridor
+      if (type === 'DRAGON') { mY = GROUND_Y - 180; mW = 90; mH = 60; }
       if (type === 'SLIME') { mY = GROUND_Y - 24; mH = 24; }
 
       monsters.push({
@@ -271,7 +239,7 @@ const GameCanvas: React.FC = () => {
         y: mY,
         width: mW,
         height: mH,
-        speed: type === 'SLIME' ? currentSpeed * 0.7 : currentSpeed,
+        speed: type === 'SLIME' ? currentSpeed * 0.6 : currentSpeed,
         phase: Math.random() * 100,
         baseY: mY
       });
@@ -280,22 +248,23 @@ const GameCanvas: React.FC = () => {
 
     for (let i = monsters.length - 1; i >= 0; i--) {
       const m = monsters[i];
-      if (m.type === 'SKELETON') {
-        const d = m.x - player.x;
-        if (d < 250 && d > 50) { m.speed = currentSpeed * 1.6; m.isDashing = true; }
-        else { m.speed = currentSpeed; m.isDashing = false; }
+      
+      // Beholder corridor logic - smooth hovering
+      if (m.type === 'BEHOLDER') {
+        const hover = Math.sin(frameCount * 0.05 + (m.phase || 0)) * 60;
+        m.y = (m.baseY || 0) + hover;
       }
       
-      // Beholder logic: Ensure they stay in a predictable height band
-      if (m.type === 'BEHOLDER') {
-        const hover = Math.sin(frameCount * 0.08 + (m.phase || 0)) * 50;
-        m.y = (m.baseY || 0) + hover;
+      if (m.type === 'SKELETON') {
+        const d = m.x - player.x;
+        if (d < 200 && d > 20) { m.speed = currentSpeed * 1.5; m.isDashing = true; }
+        else { m.speed = currentSpeed; m.isDashing = false; }
       }
 
       m.x -= m.speed;
 
-      // Collision (tightened hitboxes for 64-bit feel)
-      const pad = 8;
+      // Collision
+      const pad = 10;
       if (
         player.x < m.x + m.width - pad &&
         player.x + player.width - pad > m.x &&
@@ -325,7 +294,6 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
     
-    // Sort and draw monsters
     gameRef.current.monsters.forEach(m => {
       if (m.type === 'BEHOLDER') drawBeholder(ctx, m);
       else if (m.type === 'MIMIC') drawMimic(ctx, m);
@@ -339,7 +307,7 @@ const GameCanvas: React.FC = () => {
     // Vignette
     const vig = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH);
     vig.addColorStop(0, 'transparent');
-    vig.addColorStop(1, 'rgba(0,0,0,0.7)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.6)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
@@ -433,9 +401,6 @@ const GameCanvas: React.FC = () => {
           <p className="text-xl text-secondary">{highScore}m</p>
         </div>
       </div>
-      <p className="text-[8px] text-gray-400 uppercase tracking-widest opacity-50">
-        Double Jump Enabled • Watch the Beholders
-      </p>
     </div>
   );
 };
