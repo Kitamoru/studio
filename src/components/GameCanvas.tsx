@@ -117,7 +117,7 @@ const GameCanvas: React.FC = () => {
     const bounce = Math.sin(time * 0.2) * 3;
     const tilt = isOnGround ? Math.sin(time * 0.2) * 0.05 : 0;
 
-    // Shadow
+    // Тень на земле
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -125,7 +125,7 @@ const GameCanvas: React.FC = () => {
     ctx.ellipse(x + width/2, GROUND_Y, 20 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cape
+    // Плащ (рисуется сзади)
     const capeY = y + px * 8 + bounce;
     for (let i = 0; i < 4; i++) {
         const layerOffset = i * px * 2;
@@ -134,7 +134,7 @@ const GameCanvas: React.FC = () => {
         drawPixelRect(ctx, x - px * 5 + wave + layerOffset, capeY + i * px, px * 8, height - px * 10 - i * px, layerColor);
     }
 
-    // Legs
+    // Ноги (рисуются вне наклона корпуса для устойчивости)
     if (isOnGround) {
         const runCycle = time * 0.2;
         const lx1 = x + px * 6 + Math.sin(runCycle) * 12;
@@ -149,39 +149,39 @@ const GameCanvas: React.FC = () => {
         drawPixelRect(ctx, x + width - px * 14, y + height - px * 12, px * 6, px * 8, '#1a1621');
     }
 
+    // Основная часть героя (корпус, голова, оружие) наклоняется и качается вместе
     ctx.save();
     ctx.translate(x + width/2, y + height/2);
     ctx.rotate(tilt);
     ctx.translate(-(x + width/2), -(y + height/2));
 
-    // Sword
-    const swordX = x - px * 4;
+    // Меч (в руке, привязан к корпусу)
+    const swordX = x + px * 2;
     const swordY = y + px * 12 + bounce;
-    drawPixelRect(ctx, swordX, swordY, px * 4, px * 18, '#7a7a7a'); // Blade
-    drawPixelRect(ctx, swordX + px, swordY + px, px * 2, px * 14, '#c0c0c0'); // Highlight
-    drawPixelRect(ctx, swordX - px * 2, swordY + px * 18, px * 8, px * 2, '#3a3345'); // Guard
-    drawPixelRect(ctx, swordX + px, swordY + px * 20, px * 2, px * 4, '#5c3321'); // Handle
+    drawPixelRect(ctx, swordX, swordY, px * 3, px * 18, '#7a7a7a'); // Лезвие
+    drawPixelRect(ctx, swordX + px, swordY + px, px, px * 14, '#c0c0c0'); // Блик
+    drawPixelRect(ctx, swordX - px, swordY + px * 18, px * 5, px * 2, '#3a3345'); // Гарда
+    drawPixelRect(ctx, swordX + px, swordY + px * 20, px, px * 4, '#5c3321'); // Рукоять
 
-    // Body Armor
+    // Броня корпуса
     drawPixelRect(ctx, x + px * 3, y + px * 10 + bounce, width - px * 6, px * 18, '#4a5578');
     drawPixelRect(ctx, x + px * 4, y + px * 11 + bounce, width - px * 8, px * 8, '#5c6ba0');
     drawPixelRect(ctx, x + px * 5, y + px * 12 + bounce, px * 10, px * 2, '#a5b2e0');
 
-    // Pauldrons
+    // Наплечники
     drawPixelRect(ctx, x + px * 1, y + px * 9 + bounce, px * 9, px * 8, '#3a3345');
     drawPixelRect(ctx, x + width - px * 10, y + px * 9 + bounce, px * 9, px * 8, '#3a3345');
-    drawPixelRect(ctx, x + px * 2, y + px * 10 + bounce, px * 2, px * 2, '#5c6ba0');
-    drawPixelRect(ctx, x + width - px * 4, y + px * 10 + bounce, px * 2, px * 2, '#5c6ba0');
 
-    // Helmet (256-bit with Visor)
+    // Шлем (256-битный с забралом)
     const helmY = y - px * 10 + bounce;
     const helmW = width - px * 12;
-    drawPixelRect(ctx, x + px * 6, helmY, helmW, px * 22, '#2d2738'); // Base
-    drawPixelRect(ctx, x + px * 8, helmY + px, helmW - px * 4, px * 4, '#3a3345'); // Top Highlight
-    drawPixelRect(ctx, x + px * 5, helmY + px * 6, helmW + px * 2, px * 12, '#1a1621'); // Visor Base
-    drawPixelRect(ctx, x + px * 6, helmY + px * 7, helmW, px * 10, '#3a3345'); // Visor Middle
-    drawPixelRect(ctx, x + px * 7, helmY + px * 9, helmW - px * 2, px * 4, '#0a080d'); // Slit
+    drawPixelRect(ctx, x + px * 6, helmY, helmW, px * 22, '#2d2738'); // База
+    drawPixelRect(ctx, x + px * 8, helmY + px, helmW - px * 4, px * 4, '#3a3345'); // Блик сверху
+    drawPixelRect(ctx, x + px * 5, helmY + px * 6, helmW + px * 2, px * 12, '#1a1621'); // Забрало база
+    drawPixelRect(ctx, x + px * 6, helmY + px * 7, helmW, px * 10, '#3a3345'); // Забрало центр
+    drawPixelRect(ctx, x + px * 7, helmY + px * 9, helmW - px * 2, px * 4, '#0a080d'); // Щель
     
+    // Глаза
     const eyePulse = Math.abs(Math.sin(time * 0.1)) * 0.4 + 0.6;
     ctx.shadowBlur = 6 * eyePulse;
     ctx.shadowColor = '#00FFFF';
@@ -189,16 +189,17 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, x + px * 18, helmY + px * 10, px * 3, px * 2, '#00FFFF');
     ctx.shadowBlur = 0;
 
-    // Plume
+    // Плюмаж (перо на шлеме)
     const plumeWave = Math.sin(time * 0.15) * 4;
     drawPixelRect(ctx, x + width/2 - px, helmY - px * 12 + plumeWave, px * 5, px * 14, '#8B2E2E');
     drawPixelRect(ctx, x + width/2 + px, helmY - px * 14 + plumeWave, px * 8, px * 8, '#B33E3E');
 
-    // Shield
-    const shieldX = x + width - px * 2;
+    // Щит (на другой руке, привязан к корпусу)
+    const shieldX = x + width - px * 12;
     const shieldY = y + px * 12 + bounce;
     drawPixelRect(ctx, shieldX, shieldY, px * 14, px * 20, '#2d2738');
     drawPixelRect(ctx, shieldX + px, shieldY + px, px * 12, px * 18, '#5c6ba0');
+    drawPixelRect(ctx, shieldX + px * 2, shieldY + px * 2, px * 2, px * 2, '#a5b2e0'); // Блик на щите
 
     ctx.restore();
   };
