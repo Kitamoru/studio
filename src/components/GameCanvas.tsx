@@ -55,62 +55,50 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D, offset: number, frameCount: number) => {
-    // Глубокий фон
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // 1. Кирпичная стена с параллаксом
     const p1 = offset * 0.3;
     const brickW = 80;
     const brickH = 40;
     for (let row = 0; row < GROUND_Y / brickH; row++) {
       const xOffset = (row % 2 === 0 ? 0 : brickW / 2) - (p1 % brickW);
       for (let x = xOffset - brickW; x < VIRTUAL_WIDTH + brickW; x += brickW) {
-        const isDark = (Math.floor((x + p1) / brickW) + row) % 3 === 0;
-        ctx.fillStyle = isDark ? '#1a1621' : '#14111a';
+        const brickColor = (Math.floor((x + p1) / brickW) + row) % 3 === 0 ? '#1a1621' : '#14111a';
+        ctx.fillStyle = brickColor;
         ctx.fillRect(x, row * brickH, brickW - 2, brickH - 2);
-        
-        // Микро-тени для объема кирпичей
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.fillRect(x, row * brickH + brickH - 4, brickW - 2, 2);
         ctx.fillRect(x + brickW - 4, row * brickH, 2, brickH - 2);
       }
     }
 
-    // 2. Колонны и Факелы
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
-      // Тело колонны
       drawPixelRect(ctx, x, 0, 48, GROUND_Y, '#2d2738');
-      drawPixelRect(ctx, x + 4, 0, 6, GROUND_Y, '#3a3345'); // Блик
-      drawPixelRect(ctx, x + 38, 0, 10, GROUND_Y, '#1a1621'); // Тень
+      drawPixelRect(ctx, x + 4, 0, 6, GROUND_Y, '#3a3345');
+      drawPixelRect(ctx, x + 38, 0, 10, GROUND_Y, '#1a1621');
       
-      // ЖЕЛЕЗНОЕ КРЕПЛЕНИЕ ФАКЕЛА (Кронштейн)
       const torchY = 160;
       const bracketX = x + 30;
-      // Основание к стене
       drawPixelRect(ctx, bracketX - 6, torchY + 8, 12, 16, '#1a1621');
-      // Рукоятка/держатель
       drawPixelRect(ctx, bracketX, torchY + 4, 18, 6, '#1a1621');
-      // Чаша факела
       drawPixelRect(ctx, bracketX + 14, torchY - 4, 14, 12, '#2d2738');
-      drawPixelRect(ctx, bracketX + 12, torchY - 2, 18, 4, '#1a1621'); // Обод чаши
+      drawPixelRect(ctx, bracketX + 12, torchY - 2, 18, 4, '#1a1621');
       
-      // Пламя (Анимированное)
       const flicker = Math.sin(frameCount * 0.15) * 4;
       const flameX = bracketX + 18;
       const flameY = torchY - 25 + flicker;
       
       ctx.shadowBlur = 25 + flicker;
       ctx.shadowColor = 'rgba(255, 120, 0, 0.7)';
-      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); // Внешнее пламя
-      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); // Среднее
-      drawPixelRect(ctx, flameX + 2, flameY + 8, 4, 10, '#ffff00'); // Ядро
+      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500');
+      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00');
+      drawPixelRect(ctx, flameX + 2, flameY + 8, 4, 10, '#ffff00');
       ctx.shadowBlur = 0;
     }
 
-    // Пол
     const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, VIRTUAL_HEIGHT);
     groundGrad.addColorStop(0, '#2d2738');
     groundGrad.addColorStop(1, '#0a080d');
@@ -127,55 +115,67 @@ const GameCanvas: React.FC = () => {
     const px = 2; 
     const bounce = Math.sin(frame * 0.2) * 2;
     
-    // Тень
+    // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
-    ctx.ellipse(x + width/2, GROUND_Y, 16, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width/2, GROUND_Y, 18, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Плащ
-    const wave = Math.sin(frame * 0.15) * 4;
-    drawPixelRect(ctx, x - px*2 + wave, y + px*8 + bounce, px*6, height - px*10, '#B33E3E');
+    // Cape (128-bit style: layered folds)
+    const capeWave = Math.sin(frame * 0.15) * 6;
+    drawPixelRect(ctx, x - px*3 + capeWave, y + px*8 + bounce, px*8, height - px*10, '#8B2E2E'); // Base
+    drawPixelRect(ctx, x - px*4 + capeWave, y + px*10 + bounce, px*4, height - px*14, '#A33E3E'); // Light fold
+    drawPixelRect(ctx, x - px*2 + capeWave, y + px*12 + bounce, px*2, height - px*18, '#6B1E1E'); // Shadow fold
 
-    // Ноги
+    // Boots / Legs
     const legOffset = Math.sin(frame * 0.2) * 4;
-    drawPixelRect(ctx, x + px*6, y + height - px*8 + bounce + (legOffset > 0 ? 0 : 2), px*6, px*8, '#1a1621');
-    drawPixelRect(ctx, x + width - px*12, y + height - px*8 + bounce + (legOffset < 0 ? 0 : 2), px*6, px*8, '#1a1621');
+    // Leg 1
+    drawPixelRect(ctx, x + px*6, y + height - px*10 + bounce + (legOffset > 0 ? 0 : 2), px*7, px*10, '#1a1621');
+    drawPixelRect(ctx, x + px*7, y + height - px*4 + bounce + (legOffset > 0 ? 0 : 2), px*8, px*4, '#2d2738'); // Boot base
+    // Leg 2
+    drawPixelRect(ctx, x + width - px*13, y + height - px*10 + bounce + (legOffset < 0 ? 0 : 2), px*7, px*10, '#1a1621');
+    drawPixelRect(ctx, x + width - px*15, y + height - px*4 + bounce + (legOffset < 0 ? 0 : 2), px*8, px*4, '#2d2738');
 
-    // Тело (Доспех)
-    drawPixelRect(ctx, x + px*4, y + px*10 + bounce, width - px*8, height - px*16, '#6980CC');
-    drawPixelRect(ctx, x + px*6, y + px*12 + bounce, width - px*12, px*4, '#8fa1e0'); // Блик
-
-    // Шлем
-    drawPixelRect(ctx, x + px*8, y - px*4 + bounce, width - px*16, px*16, '#2d2738');
-    drawPixelRect(ctx, x + px*10, y + px*4 + bounce, width - px*20, px*4, '#1a1621'); // Визор
+    // Body Armor (Breastplate with highlights)
+    drawPixelRect(ctx, x + px*3, y + px*10 + bounce, width - px*6, height - px*16, '#5c6ba0'); // Armor Base
+    drawPixelRect(ctx, x + px*4, y + px*11 + bounce, width - px*8, px*8, '#7a8bc0'); // Mid light
+    drawPixelRect(ctx, x + px*5, y + px*12 + bounce, px*4, px*2, '#a5b2e0'); // Top highlight
     
-    // Глаза
-    ctx.fillStyle = '#00FFFF';
-    drawPixelRect(ctx, x + px*12, y + px*5 + bounce, px*2, px*2, '#00FFFF');
-    drawPixelRect(ctx, x + px*18, y + px*5 + bounce, px*2, px*2, '#00FFFF');
+    // Belt
+    drawPixelRect(ctx, x + px*3, y + height - px*12 + bounce, width - px*6, px*4, '#3a2115');
+    drawPixelRect(ctx, x + width/2 - px*2, y + height - px*12 + bounce, px*4, px*4, '#e0a526'); // Buckle
 
-    // Плюмаж
-    drawPixelRect(ctx, x + width/2 - px, y - px*10 + bounce, px*4, px*8, '#B33E3E');
+    // Helmet (128-bit: segmented)
+    drawPixelRect(ctx, x + px*7, y - px*6 + bounce, width - px*14, px*18, '#2d2738'); // Helmet Base
+    drawPixelRect(ctx, x + px*8, y - px*4 + bounce, width - px*16, px*4, '#3a3345'); // Top plate
+    drawPixelRect(ctx, x + px*9, y + px*4 + bounce, width - px*18, px*5, '#0a080d'); // Visor
+    
+    // Eyes (Two cyan eyes)
+    drawPixelRect(ctx, x + px*11, y + px*5 + bounce, px*2, px*2, '#00FFFF');
+    drawPixelRect(ctx, x + px*17, y + px*5 + bounce, px*2, px*2, '#00FFFF');
+
+    // Plume (Feather)
+    const plumeWave = Math.sin(frame * 0.1) * 2;
+    drawPixelRect(ctx, x + width/2 - px, y - px*14 + bounce + plumeWave, px*4, px*10, '#B33E3E');
+    drawPixelRect(ctx, x + width/2, y - px*16 + bounce + plumeWave, px*6, px*4, '#D64E4E');
+
+    // Shield (On the arm)
+    drawPixelRect(ctx, x + width - px*6, y + px*14 + bounce, px*10, px*16, '#2d2738');
+    drawPixelRect(ctx, x + width - px*4, y + px*16 + bounce, px*6, px*12, '#3a3345');
+    drawPixelRect(ctx, x + width - px, y + px*18 + bounce, px*2, px*4, '#e0a526'); // Center detail
   };
 
   const drawBeholder = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
     const time = gameRef.current.frameCount;
-    
-    // Тело
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#5c242c');
     drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#833440');
-    
-    // Щупальца
     for (let i = 0; i < 3; i++) {
       const sx = m.x + (i * 15) + 5;
       const sy = m.y - 10 + Math.sin(time * 0.1 + i) * 5;
       drawPixelRect(ctx, sx, sy, 8, 10, '#5c242c');
       drawPixelRect(ctx, sx + 2, sy - 4, 4, 4, '#ff0000');
     }
-    
-    // Глаз
     drawPixelRect(ctx, m.x + px*4, m.y + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
     const eyeY = Math.sin(time * 0.1) * 6;
     drawPixelRect(ctx, m.x + m.width/2 - px*3, m.y + m.height/2 - px*3 + eyeY, px*6, px*6, '#1a1621');
@@ -185,19 +185,14 @@ const GameCanvas: React.FC = () => {
   const drawMimic = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
     const open = Math.abs(Math.sin(gameRef.current.frameCount * 0.04)) * 10;
-    
-    drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115'); // База
-    drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#5c3321'); // Дерево
-    
-    // Железные ободы
+    drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
+    drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#5c3321');
     drawPixelRect(ctx, m.x, m.y, px*3, m.height, '#1a1621');
-    drawPixelRect(ctx, x + m.width - px*3, m.y, px*3, m.height, '#1a1621');
-    
-    // Пасть
+    drawPixelRect(ctx, m.x + m.width - px*3, m.y, px*3, m.height, '#1a1621');
     drawPixelRect(ctx, m.x + px, m.y + m.height/2 - px, m.width - px*2, open, '#000000');
     if (open > 4) {
-      drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2, px*3, open + 6, '#B33E3E'); // Язык
-      drawPixelRect(ctx, m.x + px*4, m.y + m.height/2, px*3, px*3, '#ffffff'); // Зубы
+      drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2, px*3, open + 6, '#B33E3E');
+      drawPixelRect(ctx, m.x + px*4, m.y + m.height/2, px*3, px*3, '#ffffff');
       drawPixelRect(ctx, m.x + m.width - px*7, m.y + m.height/2, px*3, px*3, '#ffffff');
     }
   };
@@ -206,21 +201,17 @@ const GameCanvas: React.FC = () => {
     const px = 2;
     const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
     const color = m.isDashing ? '#ffcccc' : '#d0d0d0';
-    
-    drawPixelRect(ctx, m.x + px*6, m.y + walk, px*12, px*12, color); // Череп
-    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*4, px*3, px*3, '#FF0000'); // Глаза
+    drawPixelRect(ctx, m.x + px*6, m.y + walk, px*12, px*12, color);
+    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*4, px*3, px*3, '#FF0000');
     drawPixelRect(ctx, m.x + px*13, m.y + walk + px*4, px*3, px*3, '#FF0000');
-    
-    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*14, px*8, px*12, color); // Ребра
+    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*14, px*8, px*12, color);
     drawPixelRect(ctx, m.x + px*7, m.y + walk + px*16, px*10, px, '#1a1621');
-    
-    drawPixelRect(ctx, m.x - px*4, m.y + walk + px*18, px*14, px*4, '#5c5c5c'); // Меч
+    drawPixelRect(ctx, m.x - px*4, m.y + walk + px*18, px*14, px*4, '#5c5c5c');
   };
 
   const drawSlime = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
     const squash = Math.sin(gameRef.current.frameCount * 0.1) * 8;
-    
     ctx.globalAlpha = 0.6;
     drawPixelRect(ctx, m.x, m.y + squash, m.width, m.height - squash, '#4CAF50');
     ctx.globalAlpha = 1.0;
@@ -260,7 +251,6 @@ const GameCanvas: React.FC = () => {
       player.jumpsRemaining = 2;
     }
 
-    // Логика спавна
     const spawnRate = Math.max(40, 130 - (gameRef.current.score / 15));
     if (frameCount - lastSpawn > spawnRate + Math.random() * 60) {
       const rand = Math.random();
@@ -273,7 +263,7 @@ const GameCanvas: React.FC = () => {
       let mY = GROUND_Y - 48;
       let mW = 48, mH = 48;
 
-      if (type === 'BEHOLDER') mY = GROUND_Y - 120;
+      if (type === 'BEHOLDER') mY = GROUND_Y - 140; // Hover higher for 128-bit clarity
       if (type === 'DRAGON') { mY = GROUND_Y - 180; mW = 100; mH = 70; }
       if (type === 'SLIME') { mY = GROUND_Y - 24; mH = 24; }
 
@@ -293,22 +283,18 @@ const GameCanvas: React.FC = () => {
 
     for (let i = monsters.length - 1; i >= 0; i--) {
       const m = monsters[i];
-      
       if (m.type === 'BEHOLDER') {
-        const hoverRange = 30;
-        m.y = (m.baseY || 0) + Math.sin(frameCount * 0.06 + (m.phase || 0)) * hoverRange;
+        const hoverRange = 40;
+        m.y = (m.baseY || 0) + Math.sin(frameCount * 0.05 + (m.phase || 0)) * hoverRange;
       }
-      
       if (m.type === 'SKELETON') {
         const d = m.x - player.x;
         if (d < 220 && d > 20) { m.speed = currentSpeed * 1.4; m.isDashing = true; }
         else { m.speed = currentSpeed; m.isDashing = false; }
       }
-
       m.x -= m.speed;
 
-      // Коллизии
-      const pad = 12;
+      const pad = 10;
       if (
         player.x < m.x + m.width - pad &&
         player.x + player.width - pad > m.x &&
@@ -351,7 +337,6 @@ const GameCanvas: React.FC = () => {
 
     drawHero(ctx, gameRef.current.player);
 
-    // Виньетка
     const vig = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH);
     vig.addColorStop(0, 'transparent');
     vig.addColorStop(1, 'rgba(0,0,0,0.75)');
