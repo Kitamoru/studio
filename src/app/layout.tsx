@@ -1,9 +1,10 @@
 import type {Metadata} from 'next';
 import './globals.css';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
   title: 'PixelDungeon Dash',
-  description: 'A 16-bit D&D themed infinite runner',
+  description: 'A high-detail dungeon infinite runner',
 };
 
 export default function RootLayout({
@@ -19,7 +20,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
         <script src="https://telegram.org/js/telegram-web-app.js" async></script>
       </head>
-      <body className="font-body antialiased bg-[#25202D] text-white">{children}</body>
+      <body className="font-body antialiased bg-[#0f0d12] text-white">
+        <FirebaseClientProvider>
+          {children}
+        </FirebaseClientProvider>
+      </body>
     </html>
   );
 }

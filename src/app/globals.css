@@ -3,18 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --background: 260 20% 15%;
+  --background: 260 20% 8%;
   --foreground: 0 0% 100%;
-  --primary: 265 65% 42%;
+  --primary: 265 65% 55%;
   --secondary: 226 50% 61%;
   --accent: 226 50% 61%;
   --radius: 0;
 }
 
 body {
-  background-color: #25202D;
+  background-color: #0f0d12;
   color: #FFFFFF;
   image-rendering: pixelated;
+  overflow-x: hidden;
 }
 
 .image-pixelated {
@@ -28,14 +29,23 @@ body {
   }
 }
 
+/* Retro styles */
+h1, h2, h3, button, span {
+  font-family: 'Press Start 2P', cursive;
+}
+
 /* Custom scrollbar for that retro feel */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #1A1621;
+  background: #0f0d12;
 }
 ::-webkit-scrollbar-thumb {
   background: #6226B3;
   border-radius: 0;
+}
+
+.glow-text {
+  text-shadow: 0 0 10px rgba(98, 38, 179, 0.8);
 }
