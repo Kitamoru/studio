@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "GameScore": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GameScore",
+      "type": "object",
+      "description": "Stores the high score achieved by a user in the PixelDungeon Dash game, along with associated user information and the timestamp of the achievement.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GameScore record. (Primary Key)"
+        },
+        "score": {
+          "type": "number",
+          "description": "The numerical score achieved by the player in a game session."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Identifier for the Telegram user who achieved the score. (Relationship: TelegramUser 1:N GameScore)"
+        },
+        "username": {
+          "type": "string",
+          "description": "The username of the Telegram user at the time the score was recorded. This field is optional and provided for convenience."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the score was recorded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "score",
+        "userId",
+        "createdAt"
+      ]
+    },
+    "GameEnvironment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GameEnvironment",
+      "type": "object",
+      "description": "Defines the static visual and atmospheric properties of a game environment, such as background textures, color palettes, and decorative elements. This entity allows for a structured definition of the game's look and potential future expansion to multiple environments.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GameEnvironment definition. (Primary Key)"
+        },
+        "name": {
+          "type": "string",
+          "description": "A human-readable name for this specific game environment (e.g., 'Classic Dungeon')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the environment's visual characteristics and theme."
+        },
+        "visualStyle": {
+          "type": "string",
+          "description": "Describes the overall visual aesthetic of the environment (e.g., '16-bit pixel art')."
+        },
+        "groundTextureType": {
+          "type": "string",
+          "description": "Describes the style or type of the ground texture to be rendered (e.g., 'stone_pixels', 'grass_pixels')."
+        },
+        "skyGradientColors": {
+          "type": "array",
+          "description": "An ordered array of hexadecimal color codes defining the gradient for the sky or upper background area. The array items describe colors from top to bottom.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "staticDecorElements": {
+          "type": "array",
+          "description": "An array of names or identifiers for static decorative elements present in this environment (e.g., 'stalactite', 'moon'). These elements contribute to the background visuals but are not interactive.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "visualStyle",
+        "groundTextureType",
+        "skyGradientColors",
+        "staticDecorElements"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/game_scores/{gameScoreId}",
+        "definition": {
+          "entityName": "GameScore",
+          "schema": {
+            "$ref": "#/backend/entities/GameScore"
+          },
+          "description": "Stores individual game score records achieved by users. Intended for a global leaderboard. Includes denormalized 'userId' for potential user-specific queries and 'username' for display."
+        }
+      },
+      {
+        "path": "/game_environments/{environmentId}",
+        "definition": {
+          "entityName": "GameEnvironment",
+          "schema": {
+            "$ref": "#/backend/entities/GameEnvironment"
+          },
+          "description": "Stores static definitions for different game environments, such as background textures and visual styles. These documents are publicly readable by all clients."
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed with two top-level collections: 'game_scores' and 'game_environments'. This flat structure prioritizes Authorization Independence and supports efficient QAPs (Query As Permissions) for global leaderboards and static game data.\n\nFor the 'game_scores' collection:\nAuthorization Independence: Each 'GameScore' document includes the 'userId' field. This denormalization means that if a user wants to query their own scores, the security rule can directly compare 'request.auth.uid' with 'resource.data.userId' without needing any 'get()' operations on parent documents. For the primary use case of a global leaderboard, all documents are intended to be publicly readable.\nQAPs Support: The collection allows for efficient 'list' operations. To display a global leaderboard, clients can simply query 'game_scores' ordered by 'score' (e.g., `db.collection('game_scores').orderBy('score', 'desc').limit(10)`). The security rules would grant read access to this collection, making it a direct QAP-compliant read. If a user wants to view only their own scores, a query like `db.collection('game_scores').where('userId', '==', request.auth.uid).orderBy('createdAt', 'desc')` is also QAP-compliant because the 'userId' is a direct field on the document, enabling indexed queries without rule-based filtering.\nStructural Segregation: All documents in 'game_scores' represent individual game scores with the same security posture (publicly readable, server-write-only).\n\nFor the 'game_environments' collection:\nAuthorization Independence: These documents contain static game configuration data that is meant to be publicly accessible to all clients. Therefore, no user-specific authorization context is required, and no denormalization for authorization is necessary for reads. Write access is assumed to be restricted to the server (via Firebase Admin SDK) or specific administrators, which is an out-of-band authorization from client rules.\nQAPs Support: Clients can perform a simple 'list' operation on the 'game_environments' collection (e.g., `db.collection('game_environments').get()`) to retrieve all available environments. Security rules would grant universal read access, ensuring QAP compliance for this static data.\nStructural Segregation: All documents within 'game_environments' share the same security posture (public read, restricted write).\n\nThis design avoids hierarchical dependencies, makes authorization intent explicit, and supports the efficient query patterns required by the application."
+  }
+}

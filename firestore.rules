@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * PIXEL DUNGEON DASH - SECURITY RULES DOCUMENTATION
+     *
+     * CORE PHILOSOPHY:
+     * This ruleset implements a public-read, protected-write model. High scores are 
+     * shared globally for leaderboard functionality but strictly owned by the 
+     * creating user. Game environment configurations are static and read-only for 
+     * all clients.
+     *
+     * DATA STRUCTURE:
+     * - /game_scores/{gameScoreId}: Flat collection for global leaderboards.
+     * - /game_environments/{environmentId}: Flat collection for game assets/theming.
+     *
+     * KEY SECURITY DECISIONS:
+     * 1. Public Leaderboards: Anyone (including unauthenticated users) can read 
+     *    scores to facilitate global rankings.
+     * 2. Identity-Based Scoring: Users can only create score records associated 
+     *    with their own Auth UID.
+     * 3. Read-Only Environments: Game environment data is managed via administrative 
+     *    tools/backend; client-side modifications are strictly prohibited.
+     * 4. Denormalization for Authorization: The 'userId' is stored directly on 
+     *    GameScore documents to allow O(1) ownership checks without extra lookups.
+     */
+
+    // --- HELPER FUNCTIONS ---
+
+    /** @description Checks if the request is from an authenticated user. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the authenticated user matches the provided ID. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Verifies ownership of an existing document before modification or deletion. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for game scores. Publicly readable for global leaderboards. 
+     * Writes are restricted to the owner identified by the 'userId' field.
+     * @path /game_scores/{gameScoreId}
+     * @allow (get, list) Always permitted for public leaderboards.
+     * @allow (create) If user is signed in and 'userId' matches their UID.
+     * @deny (create) If 'userId' does not match the requester's UID.
+     * @principle Ownership-based writes with public read access.
+     */
+    match /game_scores/{gameScoreId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(resource.data.userId);
+    }
+
+    /**
+     * @description Rules for game environments. These define the visual theme (e.g., Dungeon).
+     * Clients can read these definitions to render the game, but cannot modify them.
+     * @path /game_environments/{environmentId}
+     * @allow (get, list) Always permitted so clients can download level themes.
+     * @deny (create, update, delete) Always denied to clients; managed via admin/server.
+     * @principle Read-only static configuration data.
+     */
+    match /game_environments/{environmentId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+  }
+}
