@@ -75,7 +75,7 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#0f0d12';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Far bricks (Parallax layer 1) - Natural staggered look
+    // Far bricks (Parallax layer 1)
     const p1 = offset * 0.15;
     const brickW = 60;
     const brickH = 30;
@@ -85,16 +85,9 @@ const GameCanvas: React.FC = () => {
         const variant = Math.abs(Math.floor((x + p1) / brickW) + row) % 5;
         ctx.fillStyle = variant === 0 ? '#14111a' : '#1a1621'; 
         ctx.fillRect(x, row * brickH, brickW, brickH);
-        
-        // Brick borders/cracks with subtle depth
         ctx.strokeStyle = '#08060a';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, row * brickH, brickW, brickH);
-        
-        // Highlights on the edges
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-        ctx.fillRect(x + 1, row * brickH + 1, brickW - 2, 1);
-        ctx.fillRect(x + 1, row * brickH + 1, 1, brickH - 2);
       }
     }
 
@@ -107,12 +100,9 @@ const GameCanvas: React.FC = () => {
       for (let x = xOffset - mBrickW; x < VIRTUAL_WIDTH + mBrickW; x += mBrickW) {
         ctx.fillStyle = '#25202d';
         ctx.fillRect(x + 2, row * mBrickH + 2, mBrickW - 4, mBrickH - 4);
-        
         ctx.fillStyle = '#2d2738';
         ctx.fillRect(x + 2, row * mBrickH + 2, mBrickW - 4, 2);
         ctx.fillRect(x + 2, row * mBrickH + 2, 2, mBrickH - 4);
-        
-        // Darker bottom edge
         ctx.fillStyle = '#1a1621';
         ctx.fillRect(x + 2, (row + 1) * mBrickH - 4, mBrickW - 4, 2);
       }
@@ -120,17 +110,15 @@ const GameCanvas: React.FC = () => {
 
     // Columns and Torches
     const pCol = offset * 0.6;
-    const flicker = Math.sin(frameCount * 0.2) * 2 + Math.random() * 2;
+    const flicker = Math.sin(frameCount * 0.15) * 2 + Math.random() * 1.5;
     for (let x = -(pCol % 400); x < VIRTUAL_WIDTH + 200; x += 400) {
       ctx.fillStyle = '#1a1621'; 
       ctx.fillRect(x - 5, 0, 50, GROUND_Y);
       ctx.fillStyle = '#2d2738'; 
       ctx.fillRect(x, 0, 40, GROUND_Y);
-      
       ctx.fillStyle = '#3a324a';
       ctx.fillRect(x, 40, 40, 10);
       ctx.fillRect(x, GROUND_Y - 50, 40, 10);
-      
       drawTorch(ctx, x + 17, 150, flicker);
     }
 
@@ -141,7 +129,6 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = grad;
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
 
-    // Ground texture
     const p3 = offset % 60;
     ctx.fillStyle = '#25202d';
     for (let x = -p3; x < VIRTUAL_WIDTH + 60; x += 60) {
@@ -194,7 +181,7 @@ const GameCanvas: React.FC = () => {
 
   const drawBeholder = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 3;
-    const eyeMovement = Math.sin(gameRef.current.frameCount * 0.2) * 8; 
+    const eyeMovement = Math.sin(gameRef.current.frameCount * 0.12) * 6; 
 
     const grad = ctx.createRadialGradient(m.x + m.width/2, m.y + m.height/2, 5, m.x + m.width/2, m.y + m.height/2, 50);
     grad.addColorStop(0, 'rgba(179, 62, 62, 0.4)');
@@ -204,9 +191,7 @@ const GameCanvas: React.FC = () => {
 
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#833440');
     drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#B33E3E');
-
     drawPixelRect(ctx, m.x + px*3, m.y + px*3, m.width - px*6, m.height - px*6, '#FFFFFF');
-    
     drawPixelRect(ctx, m.x + px*6, m.y + px*6 + eyeMovement, px*3, px*4, '#000000');
     drawPixelRect(ctx, m.x + px*7, m.y + px*7 + eyeMovement, px, px, '#FFFFFF');
   };
@@ -259,9 +244,7 @@ const GameCanvas: React.FC = () => {
           username: telegramUser?.username || telegramUser?.first_name,
         }),
       });
-    } catch (err) {
-      // Handled by global listener
-    }
+    } catch (err) {}
   }, [telegramUser]);
 
   const update = useCallback(() => {
@@ -311,7 +294,6 @@ const GameCanvas: React.FC = () => {
       else type = 'MIMIC';
 
       let monsterY = GROUND_Y - 48;
-      // Initial spawn point, will be modified by movement logic
       if (type === 'BEHOLDER') monsterY = GROUND_Y - 180;
       if (type === 'DRAGON') monsterY = GROUND_Y - 260;
 
@@ -331,11 +313,12 @@ const GameCanvas: React.FC = () => {
       const m = monsters[i];
       m.x -= m.speed;
       
-      // Dynamic vertical movement for Beholders - wide arc from top to floor
       if (m.type === 'BEHOLDER') {
-        const phase = (VIRTUAL_WIDTH - m.x) * 0.04;
-        const amplitude = 130; 
-        const midY = GROUND_Y - 180;
+        // More smooth time-based vertical movement with individualized phases
+        const seed = parseInt(m.id.slice(0, 4), 36) || 0;
+        const phase = (frameCount * 0.035) + (seed % 100);
+        const amplitude = 125; 
+        const midY = GROUND_Y - 185;
         m.y = midY + Math.sin(phase) * amplitude;
       }
 
