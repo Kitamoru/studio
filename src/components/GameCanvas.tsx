@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -54,7 +55,29 @@ const GameCanvas: React.FC = () => {
     ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
   };
 
-  const drawBackground = (ctx: CanvasRenderingContext2D, offset: number) => {
+  const drawTorch = (ctx: CanvasRenderingContext2D, x: number, y: number, flicker: number) => {
+    const px = 3;
+    // Torch holder
+    drawPixelRect(ctx, x, y, px * 2, px * 4, '#3a324a');
+    
+    // Flame core
+    const flameSize = px * 2 + flicker;
+    const grad = ctx.createRadialGradient(x + px, y - px, 2, x + px, y - px, 15 + flicker * 2);
+    grad.addColorStop(0, '#FFA500');
+    grad.addColorStop(0.5, 'rgba(255, 69, 0, 0.5)');
+    grad.addColorStop(1, 'transparent');
+    
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x + px, y - px, 15 + flicker * 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner flame
+    drawPixelRect(ctx, x + px / 2, y - px * 2 - flicker, px, px * 2 + flicker, '#FF4500');
+    drawPixelRect(ctx, x + px, y - px - flicker, px / 2, px + flicker, '#FFFF00');
+  };
+
+  const drawBackground = (ctx: CanvasRenderingContext2D, offset: number, frameCount: number) => {
     // Deep back wall
     ctx.fillStyle = '#1a1621';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
@@ -68,16 +91,24 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Pillars (parallax layer 2 - faster)
+    // Pillars and Torches (parallax layer 2 - faster)
     const p2 = offset * 0.5;
-    ctx.fillStyle = '#2d2738';
+    const flicker = Math.sin(frameCount * 0.2) * 2 + Math.random() * 2;
+    
     for (let x = -(p2 % 300); x < VIRTUAL_WIDTH + 100; x += 300) {
+      // Pillar
+      ctx.fillStyle = '#2d2738';
       ctx.fillRect(x, 0, 40, GROUND_Y);
+      
       // Pillar details
       ctx.fillStyle = '#3a324a';
       ctx.fillRect(x + 5, 20, 30, 10);
       ctx.fillRect(x + 5, GROUND_Y - 30, 30, 10);
-      ctx.fillStyle = '#2d2738';
+
+      // Torch on every second pillar
+      if (Math.floor((x + p2) / 300) % 2 === 0) {
+        drawTorch(ctx, x + 17, 120, flicker);
+      }
     }
 
     // Floor
@@ -106,7 +137,7 @@ const GameCanvas: React.FC = () => {
     ctx.ellipse(x + width/2, GROUND_Y, 15, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cape (detailed)
+    // Cape
     ctx.fillStyle = '#833440';
     drawPixelRect(ctx, x + px, y + px*4 + bounce, px*4, height - px*6, '#833440');
     
@@ -124,7 +155,7 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, x + width - px*7, y + px*2 + bounce, px, px, '#00FFFF');
     ctx.shadowBlur = 0;
 
-    // Sword (animation)
+    // Sword
     const swordOffset = Math.sin(frame * 0.1) * 3;
     drawPixelRect(ctx, x + width - px, y + px*6 + swordOffset, px*2, px*8, '#E0E0E0');
   };
@@ -133,33 +164,26 @@ const GameCanvas: React.FC = () => {
     const px = 3;
     const float = Math.sin(gameRef.current.frameCount * 0.1) * 5;
     
-    // Glow effect
     const grad = ctx.createRadialGradient(m.x + m.width/2, m.y + m.height/2 + float, 5, m.x + m.width/2, m.y + m.height/2 + float, 30);
     grad.addColorStop(0, 'rgba(179, 62, 62, 0.3)');
     grad.addColorStop(1, 'transparent');
     ctx.fillStyle = grad;
     ctx.fillRect(m.x - 20, m.y + float - 20, m.width + 40, m.height + 40);
 
-    // Body
     drawPixelRect(ctx, m.x, m.y + float, m.width, m.height, '#B33E3E');
-    // Main Eye
     drawPixelRect(ctx, m.x + px*3, m.y + px*3 + float, m.width - px*6, m.height - px*6, '#FFFFFF');
     drawPixelRect(ctx, m.x + px*6, m.y + px*6 + float, px*3, px*3, '#000000');
-    // Eye glare
     drawPixelRect(ctx, m.x + px*7, m.y + px*7 + float, px, px, '#FFFFFF');
   };
 
   const drawMimic = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 3;
-    // Box
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#5C3321');
     drawPixelRect(ctx, m.x, m.y, m.width, px*4, '#7A4A31');
-    // Teeth (glowy)
     ctx.fillStyle = '#FFFFFF';
     for (let i = 0; i < 4; i++) {
       drawPixelRect(ctx, m.x + px + i*10, m.y + px*3, px*2, px*2, '#FFFFFF');
     }
-    // Tongue
     const tongueLen = Math.sin(gameRef.current.frameCount * 0.2) * 5 + 10;
     drawPixelRect(ctx, m.x + m.width/2 - px, m.y + px*4, px*2, tongueLen, '#D44E5E');
   };
@@ -184,7 +208,9 @@ const GameCanvas: React.FC = () => {
     const { player, monsters, particles, state, lastSpawn, frameCount } = gameRef.current;
     if (state !== 'PLAYING') return;
 
-    gameRef.current.bgOffset += INITIAL_MONSTER_SPEED + gameRef.current.score / 25;
+    // Difficulty scaling: speed increases with score
+    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 20);
+    gameRef.current.bgOffset += currentSpeed;
 
     // Player physics
     player.vy += GRAVITY;
@@ -197,12 +223,12 @@ const GameCanvas: React.FC = () => {
       player.isJumping = false;
     }
 
-    // Particles (dust)
-    if (frameCount % 10 === 0) {
+    // Dust particles
+    if (frameCount % 8 === 0) {
       particles.push({
         x: VIRTUAL_WIDTH,
         y: Math.random() * VIRTUAL_HEIGHT,
-        vx: -(2 + Math.random() * 2),
+        vx: -(currentSpeed * 0.5 + Math.random() * 2),
         vy: (Math.random() - 0.5) * 0.5,
         life: 1,
         color: 'rgba(255,255,255,0.1)'
@@ -216,8 +242,9 @@ const GameCanvas: React.FC = () => {
       if (p.life <= 0 || p.x < 0) particles.splice(i, 1);
     }
 
-    // Spawning
-    if (frameCount - lastSpawn > 80 + Math.random() * 120 - (gameRef.current.score / 10)) {
+    // Difficulty scaling: spawn frequency increases
+    const spawnThreshold = Math.max(35, 100 - (gameRef.current.score / 3));
+    if (frameCount - lastSpawn > spawnThreshold + Math.random() * 80) {
       const type: MonsterType = Math.random() > 0.4 ? 'BEHOLDER' : 'MIMIC';
       const monsterY = type === 'BEHOLDER' ? GROUND_Y - 140 : GROUND_Y - 48;
       monsters.push({
@@ -227,7 +254,7 @@ const GameCanvas: React.FC = () => {
         y: monsterY,
         width: 48,
         height: 48,
-        speed: INITIAL_MONSTER_SPEED + gameRef.current.score / 20,
+        speed: currentSpeed,
       });
       gameRef.current.lastSpawn = frameCount;
     }
@@ -238,7 +265,7 @@ const GameCanvas: React.FC = () => {
       m.x -= m.speed;
 
       // Collision
-      const hitBoxPadding = 12;
+      const hitBoxPadding = 14;
       if (
         player.x < m.x + m.width - hitBoxPadding &&
         player.x + player.width - hitBoxPadding > m.x &&
@@ -267,7 +294,7 @@ const GameCanvas: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    drawBackground(ctx, gameRef.current.bgOffset);
+    drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
 
     // Particles
     gameRef.current.particles.forEach(p => {
@@ -282,10 +309,10 @@ const GameCanvas: React.FC = () => {
       else drawMimic(ctx, m);
     });
 
-    // Lighting Overlay (Vignette)
+    // Lighting Overlay
     const vignette = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH/1.2);
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.7)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.75)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
@@ -295,10 +322,10 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#6226B3';
       ctx.font = '24px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('DUNGEON DASH 64', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
+      ctx.fillText('PIXELDUNGEON DASH', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '10px "Press Start 2P"';
-      ctx.fillText('PRESS SPACE TO ENTER THE VOID', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
+      ctx.fillText('PRESS SPACE OR CLICK TO START', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
     }
 
     if (gameRef.current.state === 'GAME_OVER') {
@@ -310,9 +337,9 @@ const GameCanvas: React.FC = () => {
       ctx.fillText('YOU PERISHED', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 40);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '16px "Press Start 2P"';
-      ctx.fillText(`REACHED DEPTH: ${Math.floor(gameRef.current.score)}m`, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 10);
+      ctx.fillText(`DEPTH: ${Math.floor(gameRef.current.score)}m`, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 10);
       ctx.font = '10px "Press Start 2P"';
-      ctx.fillText('CLICK TO RESURRECT', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 60);
+      ctx.fillText('CLICK TO TRY AGAIN', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 60);
     }
   }, []);
 
@@ -361,7 +388,7 @@ const GameCanvas: React.FC = () => {
   return (
     <div className="flex flex-col items-center w-full max-w-3xl mx-auto p-4 gap-8">
       <div 
-        className="relative w-full aspect-[2/1] bg-[#0f0d12] border-8 border-[#2d2738] rounded-none overflow-hidden cursor-pointer shadow-[0_0_50px_rgba(98,38,179,0.2)]"
+        className="relative w-full aspect-[2/1] bg-[#0f0d12] border-8 border-[#2d2738] rounded-none overflow-hidden cursor-pointer shadow-[0_0_50px_rgba(98,38,179,0.3)]"
         onClick={handleInput}
       >
         <canvas
@@ -373,18 +400,18 @@ const GameCanvas: React.FC = () => {
         
         {gameState === 'PLAYING' && (
           <div className="absolute top-4 left-4 font-body text-[10px] text-primary/80 animate-pulse">
-            DEPTH: {score}m
+            DEPTH: {score}m | SPEED: {Math.floor((INITIAL_MONSTER_SPEED + score/20)*10)/10}
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-2 w-full gap-4 px-2">
         <div className="bg-[#1a1621] p-4 border-l-4 border-primary">
-          <p className="text-[8px] text-gray-500 uppercase mb-1">Current Depth</p>
+          <p className="text-[8px] text-gray-500 uppercase mb-1">Depth</p>
           <p className="text-xl text-white">{score}m</p>
         </div>
         <div className="bg-[#1a1621] p-4 border-l-4 border-secondary text-right">
-          <p className="text-[8px] text-gray-500 uppercase mb-1">Max Depth</p>
+          <p className="text-[8px] text-gray-500 uppercase mb-1">Record</p>
           <p className="text-xl text-secondary">{highScore}m</p>
         </div>
       </div>
