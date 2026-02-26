@@ -7,7 +7,7 @@ export interface GameObject {
   height: number;
 }
 
-export type MonsterType = 'BEHOLDER' | 'MIMIC';
+export type MonsterType = 'BEHOLDER' | 'MIMIC' | 'DRAGON' | 'SKELETON';
 
 export interface Monster extends GameObject {
   type: MonsterType;

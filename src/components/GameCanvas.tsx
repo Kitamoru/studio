@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -57,32 +56,23 @@ const GameCanvas: React.FC = () => {
 
   const drawTorch = (ctx: CanvasRenderingContext2D, x: number, y: number, flicker: number) => {
     const px = 3;
-    // Torch holder
     drawPixelRect(ctx, x, y, px * 2, px * 4, '#3a324a');
-    
-    // Flame core
     const flameSize = px * 2 + flicker;
     const grad = ctx.createRadialGradient(x + px, y - px, 2, x + px, y - px, 15 + flicker * 2);
     grad.addColorStop(0, '#FFA500');
     grad.addColorStop(0.5, 'rgba(255, 69, 0, 0.5)');
     grad.addColorStop(1, 'transparent');
-    
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(x + px, y - px, 15 + flicker * 2, 0, Math.PI * 2);
     ctx.fill();
-
-    // Inner flame
     drawPixelRect(ctx, x + px / 2, y - px * 2 - flicker, px, px * 2 + flicker, '#FF4500');
     drawPixelRect(ctx, x + px, y - px - flicker, px / 2, px + flicker, '#FFFF00');
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D, offset: number, frameCount: number) => {
-    // Deep back wall
     ctx.fillStyle = '#1a1621';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-
-    // Brick pattern (parallax layer 1 - slow)
     const p1 = offset * 0.2;
     ctx.fillStyle = '#25202d';
     for (let x = -(p1 % 80); x < VIRTUAL_WIDTH; x += 80) {
@@ -90,35 +80,23 @@ const GameCanvas: React.FC = () => {
         ctx.fillRect(x, y, 78, 38);
       }
     }
-
-    // Pillars and Torches (parallax layer 2 - faster)
     const p2 = offset * 0.5;
     const flicker = Math.sin(frameCount * 0.2) * 2 + Math.random() * 2;
-    
     for (let x = -(p2 % 300); x < VIRTUAL_WIDTH + 100; x += 300) {
-      // Pillar
       ctx.fillStyle = '#2d2738';
       ctx.fillRect(x, 0, 40, GROUND_Y);
-      
-      // Pillar details
       ctx.fillStyle = '#3a324a';
       ctx.fillRect(x + 5, 20, 30, 10);
       ctx.fillRect(x + 5, GROUND_Y - 30, 30, 10);
-
-      // Torch on every second pillar
       if (Math.floor((x + p2) / 300) % 2 === 0) {
         drawTorch(ctx, x + 17, 120, flicker);
       }
     }
-
-    // Floor
     const grad = ctx.createLinearGradient(0, GROUND_Y, 0, VIRTUAL_HEIGHT);
     grad.addColorStop(0, '#4a3b52');
     grad.addColorStop(1, '#1a1621');
     ctx.fillStyle = grad;
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
-
-    // Floor texture
     const p3 = offset % 40;
     ctx.fillStyle = '#362a3d';
     for (let x = -p3; x < VIRTUAL_WIDTH; x += 40) {
@@ -129,51 +107,66 @@ const GameCanvas: React.FC = () => {
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
     const { x, y, width, height, isJumping, frame } = player;
     const px = 3; 
-    const bounce = isJumping ? 0 : Math.sin(frame * 0.2) * 2;
+    const bounce = isJumping ? 0 : Math.sin(frame * 0.2) * 3;
+    const legOffset = isJumping ? 0 : Math.sin(frame * 0.3) * 4;
 
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
-    ctx.ellipse(x + width/2, GROUND_Y, 15, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width/2, GROUND_Y, 18, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cape
+    // Cape (flowing)
+    const capeWarp = Math.sin(frame * 0.15) * 5;
     ctx.fillStyle = '#833440';
-    drawPixelRect(ctx, x + px, y + px*4 + bounce, px*4, height - px*6, '#833440');
+    drawPixelRect(ctx, x - px + capeWarp, y + px*5 + bounce, px*4, height - px*6, '#833440');
+    drawPixelRect(ctx, x - px*2 + capeWarp, y + px*8 + bounce, px*2, height - px*10, '#5c242c');
+
+    // Legs
+    drawPixelRect(ctx, x + px*4, y + height - px*3 + legOffset, px*2, px*3, '#2d2738');
+    drawPixelRect(ctx, x + width - px*6, y + height - px*3 - legOffset, px*2, px*3, '#2d2738');
+
+    // Armor Body
+    drawPixelRect(ctx, x + px*3, y + px*5 + bounce, width - px*6, height - px*8, '#6980CC');
+    drawPixelRect(ctx, x + px*4, y + px*6 + bounce, width - px*10, px*4, '#87a2ff'); // Highlight
+
+    // Shield
+    drawPixelRect(ctx, x - px, y + px*8 + bounce, px*3, px*10, '#4A3B52');
+    drawPixelRect(ctx, x, y + px*9 + bounce, px, px*8, '#6980CC');
+
+    // Helmet
+    drawPixelRect(ctx, x + px*4, y + bounce, width - px*8, px*6, '#4A3B52');
+    drawPixelRect(ctx, x + px*5, y + px + bounce, width - px*10, px*4, '#6980CC');
     
-    // Body Armor
-    drawPixelRect(ctx, x + px*3, y + px*4 + bounce, width - px*6, height - px*7, '#6980CC');
-    
-    // Head/Helmet
-    drawPixelRect(ctx, x + px*4, y + bounce, width - px*8, px*5, '#4A3B52');
-    drawPixelRect(ctx, x + px*5, y + px + bounce, width - px*10, px*3, '#6980CC');
-    
-    // Eyes (glow)
+    // Plume (Helmet detail)
+    drawPixelRect(ctx, x + px*6, y - px + bounce, px*4, px, '#FF4500');
+    drawPixelRect(ctx, x + px*8, y - px*2 + bounce, px*2, px, '#FF4500');
+
+    // Eyes
     ctx.fillStyle = '#00FFFF';
-    ctx.shadowBlur = 5;
+    ctx.shadowBlur = 8;
     ctx.shadowColor = '#00FFFF';
-    drawPixelRect(ctx, x + width - px*7, y + px*2 + bounce, px, px, '#00FFFF');
+    drawPixelRect(ctx, x + width - px*7, y + px*3 + bounce, px, px, '#00FFFF');
     ctx.shadowBlur = 0;
 
-    // Sword
-    const swordOffset = Math.sin(frame * 0.1) * 3;
-    drawPixelRect(ctx, x + width - px, y + px*6 + swordOffset, px*2, px*8, '#E0E0E0');
+    // Sword (Detailed)
+    const swordAnim = Math.sin(frame * 0.1) * 2;
+    drawPixelRect(ctx, x + width - px, y + px*4 + swordAnim, px*2, px*12, '#E0E0E0');
+    drawPixelRect(ctx, x + width, y + px*4 + swordAnim, px, px*10, '#FFFFFF'); // Blade highlight
+    drawPixelRect(ctx, x + width - px*2, y + px*12 + swordAnim, px*4, px, '#5C3321'); // Guard
   };
 
   const drawBeholder = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 3;
-    const float = Math.sin(gameRef.current.frameCount * 0.1) * 5;
-    
-    const grad = ctx.createRadialGradient(m.x + m.width/2, m.y + m.height/2 + float, 5, m.x + m.width/2, m.y + m.height/2 + float, 30);
-    grad.addColorStop(0, 'rgba(179, 62, 62, 0.3)');
+    const float = Math.sin(gameRef.current.frameCount * 0.1) * 8;
+    const grad = ctx.createRadialGradient(m.x + m.width/2, m.y + m.height/2 + float, 5, m.x + m.width/2, m.y + m.height/2 + float, 35);
+    grad.addColorStop(0, 'rgba(179, 62, 62, 0.4)');
     grad.addColorStop(1, 'transparent');
     ctx.fillStyle = grad;
-    ctx.fillRect(m.x - 20, m.y + float - 20, m.width + 40, m.height + 40);
-
+    ctx.fillRect(m.x - 30, m.y + float - 30, m.width + 60, m.height + 60);
     drawPixelRect(ctx, m.x, m.y + float, m.width, m.height, '#B33E3E');
     drawPixelRect(ctx, m.x + px*3, m.y + px*3 + float, m.width - px*6, m.height - px*6, '#FFFFFF');
     drawPixelRect(ctx, m.x + px*6, m.y + px*6 + float, px*3, px*3, '#000000');
-    drawPixelRect(ctx, m.x + px*7, m.y + px*7 + float, px, px, '#FFFFFF');
   };
 
   const drawMimic = (ctx: CanvasRenderingContext2D, m: Monster) => {
@@ -181,11 +174,31 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#5C3321');
     drawPixelRect(ctx, m.x, m.y, m.width, px*4, '#7A4A31');
     ctx.fillStyle = '#FFFFFF';
-    for (let i = 0; i < 4; i++) {
-      drawPixelRect(ctx, m.x + px + i*10, m.y + px*3, px*2, px*2, '#FFFFFF');
-    }
-    const tongueLen = Math.sin(gameRef.current.frameCount * 0.2) * 5 + 10;
+    for (let i = 0; i < 4; i++) drawPixelRect(ctx, m.x + px + i*10, m.y + px*3, px*2, px*2, '#FFFFFF');
+    const tongueLen = Math.sin(gameRef.current.frameCount * 0.2) * 8 + 12;
     drawPixelRect(ctx, m.x + m.width/2 - px, m.y + px*4, px*2, tongueLen, '#D44E5E');
+  };
+
+  const drawSkeleton = (ctx: CanvasRenderingContext2D, m: Monster) => {
+    const px = 3;
+    const step = Math.sin(gameRef.current.frameCount * 0.3) * 5;
+    drawPixelRect(ctx, m.x + px*2, m.y + px*2, m.width - px*4, m.height - px*2, '#E0E0E0'); // Body
+    drawPixelRect(ctx, m.x + px*3, m.y, px*6, px*5, '#F0F0F0'); // Skull
+    drawPixelRect(ctx, m.x + px*4, m.y + px*2, px, px, '#000000'); // Eye
+    drawPixelRect(ctx, m.x + px*8, m.y + px*2, px, px, '#000000'); // Eye
+    drawPixelRect(ctx, m.x + px, m.y + m.height - px*3 + step, px*2, px*3, '#E0E0E0'); // Leg
+    drawPixelRect(ctx, m.x + m.width - px*3, m.y + m.height - px*3 - step, px*2, px*3, '#E0E0E0'); // Leg
+  };
+
+  const drawDragon = (ctx: CanvasRenderingContext2D, m: Monster) => {
+    const px = 3;
+    const wing = Math.sin(gameRef.current.frameCount * 0.2) * 15;
+    drawPixelRect(ctx, m.x, m.y, m.width, m.height/2, '#833440'); // Body
+    drawPixelRect(ctx, m.x - px*4, m.y - wing, px*6, px*8, '#B33E3E'); // Left Wing
+    drawPixelRect(ctx, m.x + m.width - px*2, m.y - wing, px*6, px*8, '#B33E3E'); // Right Wing
+    drawPixelRect(ctx, m.x + m.width, m.y + px, px*5, px*4, '#833440'); // Neck
+    drawPixelRect(ctx, m.x + m.width + px*4, m.y - px, px*6, px*6, '#B33E3E'); // Head
+    drawPixelRect(ctx, m.x + m.width + px*8, m.y + px, px, px, '#FFFF00'); // Eye
   };
 
   const submitScore = useCallback(async (finalScore: number) => {
@@ -208,11 +221,9 @@ const GameCanvas: React.FC = () => {
     const { player, monsters, particles, state, lastSpawn, frameCount } = gameRef.current;
     if (state !== 'PLAYING') return;
 
-    // Difficulty scaling: speed increases with score
     const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 20);
     gameRef.current.bgOffset += currentSpeed;
 
-    // Player physics
     player.vy += GRAVITY;
     player.y += player.vy;
     player.frame++;
@@ -223,7 +234,6 @@ const GameCanvas: React.FC = () => {
       player.isJumping = false;
     }
 
-    // Dust particles
     if (frameCount % 8 === 0) {
       particles.push({
         x: VIRTUAL_WIDTH,
@@ -236,35 +246,37 @@ const GameCanvas: React.FC = () => {
     }
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life -= 0.005;
+      p.x += p.vx; p.y += p.vy; p.life -= 0.005;
       if (p.life <= 0 || p.x < 0) particles.splice(i, 1);
     }
 
-    // Difficulty scaling: spawn frequency increases
-    const spawnThreshold = Math.max(35, 100 - (gameRef.current.score / 3));
-    if (frameCount - lastSpawn > spawnThreshold + Math.random() * 80) {
-      const type: MonsterType = Math.random() > 0.4 ? 'BEHOLDER' : 'MIMIC';
-      const monsterY = type === 'BEHOLDER' ? GROUND_Y - 140 : GROUND_Y - 48;
+    const spawnThreshold = Math.max(25, 100 - (gameRef.current.score / 2.5));
+    if (frameCount - lastSpawn > spawnThreshold + Math.random() * 60) {
+      const rand = Math.random();
+      let type: MonsterType = 'MIMIC';
+      if (gameRef.current.score > 100 && rand > 0.8) type = 'DRAGON';
+      else if (gameRef.current.score > 50 && rand > 0.6) type = 'SKELETON';
+      else if (rand > 0.3) type = 'BEHOLDER';
+
+      let monsterY = GROUND_Y - 48;
+      if (type === 'BEHOLDER') monsterY = GROUND_Y - 140;
+      if (type === 'DRAGON') monsterY = GROUND_Y - 220;
+
       monsters.push({
         id: Math.random().toString(36),
         type,
         x: VIRTUAL_WIDTH,
         y: monsterY,
-        width: 48,
+        width: type === 'DRAGON' ? 64 : 48,
         height: 48,
-        speed: currentSpeed,
+        speed: type === 'SKELETON' ? currentSpeed * 1.3 : currentSpeed,
       });
       gameRef.current.lastSpawn = frameCount;
     }
 
-    // Monsters update
     for (let i = monsters.length - 1; i >= 0; i--) {
       const m = monsters[i];
       m.x -= m.speed;
-
-      // Collision
       const hitBoxPadding = 14;
       if (
         player.x < m.x + m.width - hitBoxPadding &&
@@ -277,14 +289,12 @@ const GameCanvas: React.FC = () => {
         submitScore(Math.floor(gameRef.current.score));
         if (gameRef.current.score > highScore) setHighScore(Math.floor(gameRef.current.score));
       }
-
       if (m.x + m.width < 0) {
         monsters.splice(i, 1);
         gameRef.current.score += 1;
         setScore(Math.floor(gameRef.current.score));
       }
     }
-
     gameRef.current.frameCount++;
   }, [highScore, submitScore]);
 
@@ -296,7 +306,6 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
 
-    // Particles
     gameRef.current.particles.forEach(p => {
       ctx.fillStyle = p.color;
       ctx.fillRect(p.x, p.y, 2, 2);
@@ -306,18 +315,19 @@ const GameCanvas: React.FC = () => {
 
     gameRef.current.monsters.forEach(m => {
       if (m.type === 'BEHOLDER') drawBeholder(ctx, m);
-      else drawMimic(ctx, m);
+      else if (m.type === 'MIMIC') drawMimic(ctx, m);
+      else if (m.type === 'SKELETON') drawSkeleton(ctx, m);
+      else if (m.type === 'DRAGON') drawDragon(ctx, m);
     });
 
-    // Lighting Overlay
-    const vignette = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH/1.2);
+    const vignette = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH/1.1);
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.75)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.85)');
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
     if (gameRef.current.state === 'START') {
-      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
       ctx.font = '24px "Press Start 2P"';
@@ -329,7 +339,7 @@ const GameCanvas: React.FC = () => {
     }
 
     if (gameRef.current.state === 'GAME_OVER') {
-      ctx.fillStyle = 'rgba(20,0,0,0.85)';
+      ctx.fillStyle = 'rgba(20,0,0,0.9)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#FF5555';
       ctx.font = '28px "Press Start 2P"';
@@ -388,7 +398,7 @@ const GameCanvas: React.FC = () => {
   return (
     <div className="flex flex-col items-center w-full max-w-3xl mx-auto p-4 gap-8">
       <div 
-        className="relative w-full aspect-[2/1] bg-[#0f0d12] border-8 border-[#2d2738] rounded-none overflow-hidden cursor-pointer shadow-[0_0_50px_rgba(98,38,179,0.3)]"
+        className="relative w-full aspect-[2/1] bg-[#0f0d12] border-8 border-[#2d2738] rounded-none overflow-hidden cursor-pointer shadow-[0_0_60px_rgba(98,38,179,0.4)]"
         onClick={handleInput}
       >
         <canvas
