@@ -58,7 +58,6 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Brick wall logic from previous iterations
     const p1 = offset * 0.3;
     const brickW = 80;
     const brickH = 40;
@@ -75,7 +74,6 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Pillars and Torches with iron brackets
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
@@ -112,16 +110,20 @@ const GameCanvas: React.FC = () => {
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
     const { x, y, width, height, frame } = player;
     const px = 2; 
-    const bounce = Math.sin(frame * 0.15) * 2; // Breathing/bobbing animation
+    
+    const isOnGround = y >= GROUND_Y - height - 2;
     const time = frame;
     
-    // 1. Dynamic Shadow
+    const bounce = isOnGround ? Math.sin(time * 0.2) * 3 : 0;
+    const tilt = isOnGround ? Math.sin(time * 0.2) * 0.05 : 0;
+
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(x + width/2, GROUND_Y, 20, 6, 0, 0, Math.PI * 2);
+    const jumpHeight = (GROUND_Y - (y + height));
+    const shadowScale = Math.max(0.2, 1 - jumpHeight / 200);
+    ctx.ellipse(x + width/2, GROUND_Y, 20 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. High-Detail Cape (Physics-based)
     const capeY = y + px * 8 + bounce;
     for (let i = 0; i < 4; i++) {
         const layerOffset = i * px * 2;
@@ -130,37 +132,42 @@ const GameCanvas: React.FC = () => {
         drawPixelRect(ctx, x - px * 5 + wave + layerOffset, capeY + i * px, px * 8, height - px * 10 - i * px, layerColor);
     }
 
-    // 3. Legs
-    const legMove = Math.sin(time * 0.2) * 4;
-    drawPixelRect(ctx, x + px * 6, y + height - px * 10 + (legMove > 0 ? 0 : 2), px * 6, px * 10, '#1a1621');
-    drawPixelRect(ctx, x + width - px * 12, y + height - px * 10 + (legMove < 0 ? 0 : 2), px * 6, px * 10, '#1a1621');
+    if (isOnGround) {
+        const runCycle = time * 0.2;
+        const lx1 = x + px * 6 + Math.sin(runCycle) * 12;
+        const ly1 = y + height - px * 8 + Math.max(0, Math.cos(runCycle) * 6);
+        const lx2 = x + px * 14 + Math.sin(runCycle + Math.PI) * 12;
+        const ly2 = y + height - px * 8 + Math.max(0, Math.cos(runCycle + Math.PI) * 6);
+        
+        drawPixelRect(ctx, lx2, ly2, px * 6, px * 8, '#14111a'); // Back leg
+        drawPixelRect(ctx, lx1, ly1, px * 6, px * 8, '#25202d'); // Front leg
+    } else {
+        drawPixelRect(ctx, x + px * 6, y + height - px * 6, px * 6, px * 8, '#1a1621');
+        drawPixelRect(ctx, x + width - px * 14, y + height - px * 12, px * 6, px * 8, '#1a1621');
+    }
 
-    // 4. Volumetric Torso Armor
-    drawPixelRect(ctx, x + px * 3, y + px * 10 + bounce, width - px * 6, px * 18, '#4a5578'); // Base
-    drawPixelRect(ctx, x + px * 4, y + px * 11 + bounce, width - px * 8, px * 8, '#5c6ba0'); // Breastplate top
-    drawPixelRect(ctx, x + px * 5, y + px * 12 + bounce, px * 10, px * 2, '#a5b2e0'); // Highlight
+    ctx.save();
+    ctx.translate(x + width/2, y + height/2);
+    ctx.rotate(tilt);
+    ctx.translate(-(x + width/2), -(y + height/2));
 
-    // 5. Pauldrons with Rivets
-    drawPixelRect(ctx, x + px * 1, y + px * 9 + bounce, px * 9, px * 8, '#3a3345'); // Left
-    drawPixelRect(ctx, x + width - px * 10, y + px * 9 + bounce, px * 9, px * 8, '#3a3345'); // Right
-    drawPixelRect(ctx, x + px * 2, y + px * 10 + bounce, px * 2, px * 2, '#5c6ba0'); // Rivet left
-    drawPixelRect(ctx, x + width - px * 4, y + px * 10 + bounce, px * 2, px * 2, '#5c6ba0'); // Rivet right
+    drawPixelRect(ctx, x + px * 3, y + px * 10 + bounce, width - px * 6, px * 18, '#4a5578');
+    drawPixelRect(ctx, x + px * 4, y + px * 11 + bounce, width - px * 8, px * 8, '#5c6ba0');
+    drawPixelRect(ctx, x + px * 5, y + px * 12 + bounce, px * 10, px * 2, '#a5b2e0');
 
-    // 6. Volumetric Helmet with Visor
+    drawPixelRect(ctx, x + px * 1, y + px * 9 + bounce, px * 9, px * 8, '#3a3345');
+    drawPixelRect(ctx, x + width - px * 10, y + px * 9 + bounce, px * 9, px * 8, '#3a3345');
+    drawPixelRect(ctx, x + px * 2, y + px * 10 + bounce, px * 2, px * 2, '#5c6ba0');
+    drawPixelRect(ctx, x + width - px * 4, y + px * 10 + bounce, px * 2, px * 2, '#5c6ba0');
+
     const helmY = y - px * 10 + bounce;
     const helmW = width - px * 12;
-    // Helmet Base (Roundness effect)
     drawPixelRect(ctx, x + px * 6, helmY, helmW, px * 22, '#2d2738');
-    drawPixelRect(ctx, x + px * 8, helmY + px, helmW - px * 4, px * 4, '#3a3345'); // Top plate
+    drawPixelRect(ctx, x + px * 8, helmY + px, helmW - px * 4, px * 4, '#3a3345');
+    drawPixelRect(ctx, x + px * 5, helmY + px * 6, helmW + px * 2, px * 12, '#1a1621');
+    drawPixelRect(ctx, x + px * 6, helmY + px * 7, helmW, px * 10, '#3a3345');
+    drawPixelRect(ctx, x + px * 7, helmY + px * 9, helmW - px * 2, px * 4, '#0a080d');
     
-    // Visor/Zabralo (Volume effect)
-    drawPixelRect(ctx, x + px * 5, helmY + px * 6, helmW + px * 2, px * 12, '#1a1621'); // Visor Background
-    drawPixelRect(ctx, x + px * 6, helmY + px * 7, helmW, px * 10, '#3a3345'); // Face plate
-    
-    // Visor Slit
-    drawPixelRect(ctx, x + px * 7, helmY + px * 9, helmW - px * 2, px * 4, '#0a080d'); 
-    
-    // Glowing Eyes
     const eyePulse = Math.abs(Math.sin(time * 0.1)) * 0.4 + 0.6;
     ctx.shadowBlur = 6 * eyePulse;
     ctx.shadowColor = '#00FFFF';
@@ -168,21 +175,18 @@ const GameCanvas: React.FC = () => {
     drawPixelRect(ctx, x + px * 18, helmY + px * 10, px * 3, px * 2, '#00FFFF');
     ctx.shadowBlur = 0;
 
-    // 7. Dynamic Plume (Rich crimson)
     const plumeWave = Math.sin(time * 0.15) * 4;
     drawPixelRect(ctx, x + width/2 - px, helmY - px * 12 + plumeWave, px * 5, px * 14, '#8B2E2E');
     drawPixelRect(ctx, x + width/2 + px, helmY - px * 14 + plumeWave, px * 8, px * 8, '#B33E3E');
-    drawPixelRect(ctx, x + width/2 + px * 4, helmY - px * 16 + plumeWave, px * 4, px * 4, '#D64E4E');
 
-    // 8. Heraldic Shield
     const shieldX = x + width - px * 2;
     const shieldY = y + px * 12 + bounce;
     drawPixelRect(ctx, shieldX, shieldY, px * 14, px * 20, '#2d2738');
     drawPixelRect(ctx, shieldX + px, shieldY + px, px * 12, px * 18, '#5c6ba0');
-    drawPixelRect(ctx, shieldX + px * 5, shieldY + px * 4, px * 2, px * 10, '#e0a526'); // Gold emblem
+
+    ctx.restore();
   };
 
-  // Rest of drawing functions (Beholder, Mimic, etc.)
   const drawBeholder = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const px = 2;
     const time = gameRef.current.frameCount;
@@ -272,7 +276,7 @@ const GameCanvas: React.FC = () => {
       let mY = GROUND_Y - 48;
       let mW = 48, mH = 48;
 
-      if (type === 'BEHOLDER') mY = GROUND_Y - 130; // High enough to run under
+      if (type === 'BEHOLDER') mY = GROUND_Y - 130;
       if (type === 'DRAGON') { mY = GROUND_Y - 180; mW = 100; mH = 70; }
       if (type === 'SLIME') { mY = GROUND_Y - 24; mH = 24; }
 
