@@ -158,23 +158,11 @@ const GameCanvas: React.FC = () => {
         drawPixelRect(ctx, x + width - px * 14, y + height - px * 12, px * 6, px * 8, '#1a1621');
     }
 
-    // Основная часть героя (корпус, голова, оружие)
+    // Основная часть героя (корпус, голова)
     ctx.save();
     ctx.translate(x + width/2, y + height/2);
     ctx.rotate(tilt);
     ctx.translate(-(x + width/2), -(y + height/2));
-
-    // Меч (в руке, острием вперед)
-    const swordX = x + px * 15;
-    const swordY = y + px * 16 + bounce;
-    // Лезвие
-    drawPixelRect(ctx, swordX + px * 4, swordY + px, px * 22, px * 3, '#7a7a7a'); 
-    // Блик на лезвии
-    drawPixelRect(ctx, swordX + px * 6, swordY + px * 2, px * 18, px, '#c0c0c0'); 
-    // Гарда
-    drawPixelRect(ctx, swordX + px * 2, swordY - px, px * 2, px * 7, '#3a3345'); 
-    // Рукоять
-    drawPixelRect(ctx, swordX - px * 4, swordY + px, px * 6, px * 2, '#5c3321');
 
     // Броня корпуса
     drawPixelRect(ctx, x + px * 3, y + px * 10 + bounce, width - px * 6, px * 18, '#4a5578');
