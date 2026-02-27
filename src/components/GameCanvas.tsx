@@ -272,16 +272,34 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.ellipse(x + width/2, y + height - wobbleY + 5, wobbleX/2, wobbleY/2, 0, 0, Math.PI * 2); ctx.fill();
     } else if (type === 'MIMIC') {
       const snap = Math.sin(time * 0.015) * 6;
-      ctx.fillStyle = '#261102';
+      ctx.fillStyle = '#261102'; // Тёмное дерево
       ctx.beginPath(); ctx.roundRect(x, y + 10, width, height - 10, 4); ctx.fill();
+      
+      // Текстура дерева
+      ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 1;
+      for(let i=0; i<4; i++) {
+        ctx.beginPath(); ctx.moveTo(x + i*12, y + 10); ctx.lineTo(x + i*12, y + height); ctx.stroke();
+      }
+
+      // Металлические накладки
       ctx.fillStyle = '#A16207';
       ctx.fillRect(x, y + 10, 6, height - 10);
       ctx.fillRect(x + width - 6, y + 10, 6, height - 10);
+      
+      // Жуткие глаза в щели
+      ctx.fillStyle = '#EAB308';
+      for(let i=0; i<3; i++) {
+        ctx.beginPath(); ctx.arc(x + 10 + i*10, y + 22 + Math.sin(time*0.01+i)*3, 2, 0, Math.PI*2); ctx.fill();
+      }
+
+      // Язык
       ctx.fillStyle = '#BE123C';
       ctx.beginPath();
       ctx.moveTo(x + width/2 - 8, y + 20);
       ctx.quadraticCurveTo(x + width + 15 + snap, y + 15 + Math.sin(time*0.015)*15, x + width/2 + 8, y + 35);
       ctx.fill();
+
+      // Зубы
       ctx.fillStyle = '#f8fafc';
       for(let i=0; i<6; i++) {
         const tx = x + 5 + i*7;
@@ -301,19 +319,39 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#1F2937';
       ctx.beginPath(); ctx.ellipse(x + width/2, y + height/2, 6, 8, 0, 0, Math.PI*2); ctx.fill();
     } else if (type === 'OGRE') {
-      ctx.fillStyle = '#166534';
+      ctx.fillStyle = '#166534'; // Кожа огра
       ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 8); ctx.fill();
+      
+      // Наплечник
+      ctx.fillStyle = '#422006';
+      ctx.beginPath(); ctx.roundRect(x + 5, y + 15, 20, 15, 4); ctx.fill();
+
       ctx.fillStyle = '#14532D';
       ctx.beginPath(); ctx.roundRect(x + 15, y, 32, 28, 6); ctx.fill();
+      
+      // Дубина с шипами
       ctx.save();
       const clubSwing = Math.sin(time * 0.006) * 0.6;
       ctx.translate(x + width - 10, y + 40);
       ctx.rotate(clubSwing);
+      
       ctx.fillStyle = '#422006';
-      ctx.fillRect(0, -25, 14, 45);
+      ctx.fillRect(0, -25, 14, 45); // Ручка
+      
       ctx.fillStyle = '#713F12';
-      ctx.beginPath(); ctx.arc(7, -25, 14, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(7, -25, 14, 0, Math.PI*2); ctx.fill(); // Боевая часть
+      
+      // Шипы
+      ctx.fillStyle = '#94A3B8';
+      for(let i=0; i<4; i++) {
+        const ang = (i * Math.PI * 2) / 4;
+        ctx.beginPath();
+        ctx.moveTo(7 + Math.cos(ang)*14, -25 + Math.sin(ang)*14);
+        ctx.lineTo(7 + Math.cos(ang)*22, -25 + Math.sin(ang)*22);
+        ctx.stroke();
+      }
       ctx.restore();
+
     } else if (type === 'GHOST') {
       const float = Math.sin(time * 0.004) * 10;
       ctx.globalAlpha = 0.5 + Math.sin(time * 0.005) * 0.2;
@@ -567,9 +605,10 @@ const GameCanvas: React.FC = () => {
       <div 
         ref={containerRef}
         className={cn(
-          "relative w-full h-[66vh] cursor-pointer overflow-hidden bg-black",
+          "relative w-full h-[66vh] cursor-pointer overflow-hidden bg-black mx-auto",
           isShaking && "animate-shake"
         )}
+        style={{ maxWidth: '800px' }}
         onClick={handleInput}
       >
         {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
@@ -620,7 +659,7 @@ const GameCanvas: React.FC = () => {
         )}
       </div>
 
-      <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide">
+      <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide mx-auto" style={{ maxWidth: '800px' }}>
         {combatLog.map((log) => (
           <div key={log.id} className={cn(
             "text-[8px] uppercase flex items-center gap-2 animate-in slide-in-from-left-2",
