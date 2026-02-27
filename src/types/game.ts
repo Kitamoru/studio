@@ -9,15 +9,14 @@ export interface GameObject {
   height: number;
 }
 
-export type MonsterType = 'BEHOLDER' | 'MIMIC' | 'DRAGON' | 'SKELETON' | 'SLIME';
+export type ObstacleType = 'GROUND' | 'AIR' | 'TALL';
+export type MonsterType = 'BEHOLDER' | 'MIMIC' | 'SKELETON';
 
 export interface Monster extends GameObject {
   type: MonsterType;
+  obstacleType: ObstacleType;
   speed: number;
   id: string;
-  phase?: number;
-  baseY?: number;
-  isDashing?: boolean;
 }
 
 export interface Player extends GameObject {
