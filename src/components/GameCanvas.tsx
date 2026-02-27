@@ -61,7 +61,6 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Параллакс кирпичей
     const p1 = offset * 0.3;
     const brickW = 80;
     const brickH = 40;
@@ -74,7 +73,6 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Колонны и факелы
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
@@ -82,7 +80,6 @@ const GameCanvas: React.FC = () => {
       
       const torchY = 160;
       const bracketX = x + 30;
-      
       drawPixelRect(ctx, bracketX - 8, torchY + 12, 16, 20, '#110e14'); 
       drawPixelRect(ctx, bracketX - 4, torchY + 6, 26, 6, '#1a1621'); 
       
@@ -110,21 +107,17 @@ const GameCanvas: React.FC = () => {
     if (isImageLoaded && playerImgRef.current && !loadError) {
       ctx.drawImage(playerImgRef.current, Math.floor(x), Math.floor(y), width, height);
     } else {
-      // Запасной вариант (Принц из геометрических фигур)
       const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
       const jumpOffset = player.isJumping ? -5 : 0;
       
-      // Плащ
       ctx.fillStyle = '#6226B3';
       ctx.fillRect(x - 4, y + 16 + walk/2, 20, 24);
       
-      // Тело
-      drawPixelRect(ctx, x + 10, y + 12 + walk + jumpOffset, 24, 28, '#4a2c1d'); // Туника
-      drawPixelRect(ctx, x + 14, y + 4 + walk + jumpOffset, 16, 16, '#f0d0a0'); // Лицо
-      drawPixelRect(ctx, x + 12, y + 2 + walk + jumpOffset, 20, 8, '#d4af37');  // Волосы
+      drawPixelRect(ctx, x + 10, y + 12 + walk + jumpOffset, 24, 28, '#4a2c1d'); 
+      drawPixelRect(ctx, x + 14, y + 4 + walk + jumpOffset, 16, 16, '#f0d0a0'); 
+      drawPixelRect(ctx, x + 12, y + 2 + walk + jumpOffset, 20, 8, '#d4af37');  
     }
 
-    // Тень
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -232,11 +225,9 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
     
-    // Экран загрузки
     if (!isImageLoaded && !loadError) {
       ctx.fillStyle = 'rgba(0,0,0,0.95)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-      
       ctx.fillStyle = '#6226B3';
       ctx.font = '24px "Press Start 2P"';
       ctx.textAlign = 'center';
@@ -247,12 +238,11 @@ const GameCanvas: React.FC = () => {
     gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
     drawHero(ctx, gameRef.current.player);
 
-    // Сообщение об ошибке, если файл не найден
     if (loadError) {
       ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
       ctx.font = '10px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ФАЙЛ prince.gif НЕ НАЙДЕН В /public/', VIRTUAL_WIDTH / 2, 30);
+      ctx.fillText('ОШИБКА: prince.gif НЕ НАЙДЕН В /public/', VIRTUAL_WIDTH / 2, 40);
     }
 
     if (gameRef.current.state === 'START') {
@@ -324,8 +314,8 @@ const GameCanvas: React.FC = () => {
           setIsImageLoaded(true);
           setLoadError(false);
         }}
-        onError={() => {
-          console.error("Файл /prince.gif не найден. Убедитесь, что он лежит в папке public/");
+        onError={(e) => {
+          console.error("Файл /prince.gif не найден. Проверьте папку public/.", e);
           setLoadError(true);
           setIsImageLoaded(true); 
         }}
