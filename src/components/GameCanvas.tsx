@@ -10,12 +10,13 @@ import { ASSET_MANIFEST } from '@/lib/asset-manifest';
 import { Heart, Shield, Zap, Wand2, Loader2, Sword } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const VIRTUAL_WIDTH = 800;
-const VIRTUAL_HEIGHT = 400;
+// Новые константы для портретной ориентации
+const VIRTUAL_WIDTH = 450;
+const VIRTUAL_HEIGHT = 800;
 const GRAVITY = 0.65;
 const JUMP_STRENGTH = -14;
-const GROUND_Y = 340;
-const PLAYER_X = 120;
+const GROUND_Y = 700;
+const PLAYER_X = 80;
 
 interface Particle {
   x: number;
@@ -73,7 +74,6 @@ const GameCanvas: React.FC = () => {
     collisionCooldown: 0,
   });
 
-  // Автопрокрутка лога
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [combatLog]);
@@ -251,12 +251,12 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
-    let offset0 = gameRef.current.parallax[0] % 600;
-    for (let x = -offset0; x < VIRTUAL_WIDTH + 600; x += 600) {
+    let offset0 = gameRef.current.parallax[0] % 400;
+    for (let x = -offset0; x < VIRTUAL_WIDTH + 400; x += 400) {
       ctx.fillStyle = '#0D0B12';
-      ctx.fillRect(x + 200, 0, 80, VIRTUAL_HEIGHT);
-      const torchX = x + 240;
-      const torchY = 150;
+      ctx.fillRect(x + 150, 0, 100, VIRTUAL_HEIGHT);
+      const torchX = x + 200;
+      const torchY = 300;
       ctx.fillStyle = '#2D1409';
       ctx.fillRect(torchX - 2, torchY, 4, 15);
       const flicker = Math.random() * 5;
@@ -277,11 +277,11 @@ const GameCanvas: React.FC = () => {
     }
 
     ctx.fillStyle = '#16121D';
-    let offset1 = gameRef.current.parallax[1] % 400;
-    for (let x = -offset1; x < VIRTUAL_WIDTH + 400; x += 400) {
-      ctx.fillRect(x + 50, 100, 100, 300);
+    let offset1 = gameRef.current.parallax[1] % 300;
+    for (let x = -offset1; x < VIRTUAL_WIDTH + 300; x += 300) {
+      ctx.fillRect(x + 50, 400, 100, 400);
       ctx.beginPath();
-      ctx.arc(x + 100, 100, 50, 0, Math.PI, true);
+      ctx.arc(x + 100, 400, 50, 0, Math.PI, true);
       ctx.fill();
     }
 
@@ -357,7 +357,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
-      ctx.font = '16px "Press Start 2P"';
+      ctx.font = '14px "Press Start 2P"';
       ctx.textAlign = 'center';
       ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
     }
@@ -521,7 +521,7 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Верхняя компактная панель UI */}
+      {/* Верхняя панель UI */}
       {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
         <div className="w-full h-[6vh] flex justify-between items-center bg-[#0D0B12]/80 p-3 px-6 border-b-2 border-primary/30 backdrop-blur-md z-10 shrink-0">
           <div className="flex gap-1.5">
@@ -536,10 +536,10 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Основной холст (занимает 2/3 экрана) */}
+      {/* Игровой холст (Занимает 2/3 и заполняет все пространство) */}
       <div 
         className={cn(
-          "relative w-full h-[60vh] overflow-hidden cursor-pointer shrink-0 bg-black flex items-center justify-center",
+          "relative w-full h-[66vh] overflow-hidden cursor-pointer shrink-0 bg-black",
           isShaking && "animate-shake"
         )}
         onClick={handleInput}
@@ -548,7 +548,7 @@ const GameCanvas: React.FC = () => {
           ref={canvasRef} 
           width={VIRTUAL_WIDTH} 
           height={VIRTUAL_HEIGHT} 
-          className="image-pixelated max-w-full max-h-full object-contain" 
+          className="image-pixelated w-full h-full object-cover" 
         />
         
         {gameState === 'GAME_OVER' && (
@@ -562,7 +562,7 @@ const GameCanvas: React.FC = () => {
         )}
       </div>
 
-      {/* Компактный лог боя (занимает оставшееся место, логи идут сверху вниз) */}
+      {/* Лог боя (1/3 экрана) */}
       {gameState === 'PLAYING' && (
         <div className="w-full flex-1 bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide">
           {combatLog.map((log) => (
