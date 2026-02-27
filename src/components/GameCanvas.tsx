@@ -39,16 +39,16 @@ const GameCanvas: React.FC = () => {
     frameCount: 0,
   });
 
-  // Загрузка спрайта игрока из папки public/
+  // Загрузка нового ассета prince.gif из папки public/
   useEffect(() => {
     const img = new Image();
-    img.src = '/player.png';
+    img.src = '/prince.gif';
     img.onload = () => {
-      console.log('Спрайт player.png успешно загружен');
+      console.log('Ассет prince.gif успешно загружен');
       setPlayerImage(img);
     };
     img.onerror = () => {
-      console.warn('Файл player.png не найден по пути /public/player.png. Используется временная отрисовка.');
+      console.warn('Файл prince.gif не найден в /public/. Убедитесь, что вы правильно разместили файл.');
     };
   }, []);
 
@@ -94,18 +94,18 @@ const GameCanvas: React.FC = () => {
       const torchY = 160;
       const bracketX = x + 30;
       
-      // Кронштейн факела
-      drawPixelRect(ctx, bracketX - 6, torchY + 8, 12, 16, '#1a1621');
-      drawPixelRect(ctx, bracketX, torchY + 4, 18, 6, '#1a1621');
+      // Кронштейн факела (кованое железо)
+      drawPixelRect(ctx, bracketX - 8, torchY + 12, 16, 20, '#110e14'); // Основание
+      drawPixelRect(ctx, bracketX - 4, torchY + 6, 26, 6, '#1a1621'); // Держатель
       
       const flicker = Math.sin(frameCount * 0.15) * 4;
-      const flameX = bracketX + 18;
-      const flameY = torchY - 25 + flicker;
+      const flameX = bracketX + 22;
+      const flameY = torchY - 22 + flicker;
       
       ctx.shadowBlur = 25 + flicker;
       ctx.shadowColor = 'rgba(255, 120, 0, 0.7)';
-      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500');
-      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00');
+      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); // Пламя внешнее
+      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); // Сердце пламени
       ctx.shadowBlur = 0;
     }
 
@@ -120,17 +120,16 @@ const GameCanvas: React.FC = () => {
     const { x, y, width, height } = player;
 
     if (playerImage) {
-      // Отрисовка вашего спрайта с автоматическим масштабированием до 48x48
+      // Отрисовка вашего GIF с масштабированием до 48x48
       ctx.drawImage(playerImage, Math.floor(x), Math.floor(y), width, height);
     } else {
-      // Временная отрисовка, пока файл player.png не загружен
-      const walk = Math.sin(gameRef.current.frameCount * 0.2) * 3;
-      drawPixelRect(ctx, x + 8, y + walk, 32, 40, '#5c4033'); // Туника
+      // Заглушка, пока prince.gif грузится или если он не найден
+      const walk = Math.sin(gameRef.current.frameCount * 0.2) * 2;
+      drawPixelRect(ctx, x + 8, y + walk, 32, 40, '#3a2115'); // Тело
       drawPixelRect(ctx, x + 12, y + walk - 12, 24, 24, '#f0d0a0'); // Голова
-      drawPixelRect(ctx, x + 4, y + walk + 10, 40, 4, '#4b0082'); // Плащ (заглушка)
     }
 
-    // Тень
+    // Тень под ногами
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -148,8 +147,6 @@ const GameCanvas: React.FC = () => {
     } else if (m.type === 'MIMIC') {
       drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
       drawPixelRect(ctx, m.x + 2, m.y + 2, m.width - 4, m.height - 4, '#5c3321');
-    } else {
-      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#4CAF50');
     }
   };
 
