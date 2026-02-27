@@ -7,7 +7,7 @@ import { calculateSpeed, checkCollision } from '@/lib/game-math';
 import { useDnd } from '@/context/dnd-context';
 import { performACCheck, CHARACTER_CLASSES } from '@/lib/dnd-logic';
 import { ASSET_MANIFEST } from '@/lib/asset-manifest';
-import { Heart, Shield, Zap, Wand2, Loader2, Sword, Music, Sparkles } from 'lucide-react';
+import { Heart, Shield, Zap, Wand2, Loader2, Sword, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Particle {
@@ -134,183 +134,193 @@ const GameCanvas: React.FC = () => {
       const hover = Math.sin(time * 0.003) * 5;
       const dy = y + hover;
 
-      ctx.strokeStyle = '#450A0A';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(x + width - 20, dy + height/2);
-      ctx.quadraticCurveTo(x + width + 30, dy + height/2 + Math.sin(time*0.004)*20, x + width + 10, dy + height - 10);
-      ctx.stroke();
-
-      ctx.fillStyle = '#450A0A';
-      ctx.beginPath();
-      ctx.moveTo(x + width/2 - 10, dy + 30);
-      ctx.quadraticCurveTo(x + width + 20, dy - 20 - flap, x + width - 10, dy + 50);
-      ctx.fill();
-
+      // Тело дракона
       const bodyGrad = ctx.createLinearGradient(x, dy, x + width, dy + height);
       bodyGrad.addColorStop(0, '#991B1B');
       bodyGrad.addColorStop(1, '#450A0A');
       ctx.fillStyle = bodyGrad;
+      
+      // Хвост
       ctx.beginPath();
-      ctx.roundRect(x + 20, dy + 25, width - 40, height - 40, 15);
+      ctx.moveTo(x + width - 20, dy + height/2);
+      ctx.quadraticCurveTo(x + width + 40, dy + height/2 + Math.sin(time*0.004)*30, x + width + 20, dy + height - 10);
+      ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 12; ctx.stroke();
+
+      // Крылья (Верхний слой)
+      ctx.fillStyle = '#450A0A';
+      ctx.beginPath();
+      ctx.moveTo(x + width/2, dy + 30);
+      ctx.quadraticCurveTo(x + width + 60, dy - 40 - flap, x + width, dy + 60);
       ctx.fill();
 
-      ctx.fillStyle = '#450A0A';
-      for(let i=0; i<3; i++) {
+      // Основное тело (скругленный прямоугольник)
+      ctx.beginPath();
+      ctx.roundRect(x + 20, dy + 20, width - 40, height - 30, 20);
+      ctx.fill();
+
+      // Шипы на спине
+      ctx.fillStyle = '#260404';
+      for(let i=0; i<4; i++) {
         ctx.beginPath();
-        ctx.moveTo(x + 35 + i*15, dy + 25);
-        ctx.lineTo(x + 42 + i*15, dy + 10);
-        ctx.lineTo(x + 50 + i*15, dy + 25);
+        ctx.moveTo(x + 40 + i*15, dy + 20);
+        ctx.lineTo(x + 47 + i*15, dy + 5);
+        ctx.lineTo(x + 55 + i*15, dy + 20);
         ctx.fill();
       }
 
+      // Голова
       ctx.fillStyle = '#7F1D1D';
       ctx.beginPath();
-      ctx.roundRect(x + 5, dy + 10, 45, 35, [15, 5, 5, 15]);
+      ctx.roundRect(x - 5, dy + 5, 50, 40, [15, 5, 5, 15]);
       ctx.fill();
 
-      ctx.fillStyle = '#260404';
-      ctx.beginPath(); ctx.moveTo(x+15, dy+10); ctx.lineTo(x+5, dy-5); ctx.lineTo(x+25, dy+10); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(x+30, dy+10); ctx.lineTo(x+20, dy-5); ctx.lineTo(x+40, dy+10); ctx.fill();
+      // Рога
+      ctx.fillStyle = '#1A0202';
+      ctx.beginPath(); ctx.moveTo(x+10, dy+5); ctx.lineTo(x, dy-10); ctx.lineTo(x+20, dy+5); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x+25, dy+5); ctx.lineTo(x+15, dy-10); ctx.lineTo(x+35, dy+5); ctx.fill();
 
-      const eyeGlow = ctx.createRadialGradient(x+15, dy+22, 0, x+15, dy+22, 8);
+      // Светящийся глаз
+      const eyeGlow = ctx.createRadialGradient(x+10, dy+20, 0, x+10, dy+20, 10);
       eyeGlow.addColorStop(0, '#FDE047');
       eyeGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = eyeGlow;
-      ctx.beginPath(); ctx.arc(x+15, dy+22, 8, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.fillRect(x + 13, dy + 20, 4, 4);
+      ctx.beginPath(); ctx.arc(x+10, dy+20, 10, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000'; ctx.fillRect(x+8, dy+18, 4, 4);
 
-      if (Math.random() > 0.2) {
-        const fireLen = 20 + Math.random() * 25;
-        const fireGrad = ctx.createLinearGradient(x + 5, dy + 30, x - fireLen, dy + 35);
-        fireGrad.addColorStop(0, '#F59E0B');
-        fireGrad.addColorStop(0.5, '#EF4444');
-        fireGrad.addColorStop(1, 'transparent');
-        ctx.fillStyle = fireGrad;
-        ctx.beginPath();
-        ctx.moveTo(x + 5, dy + 25);
-        ctx.quadraticCurveTo(x - fireLen/2, dy + 20 + Math.sin(time*0.02)*10, x - fireLen, dy + 30);
-        ctx.quadraticCurveTo(x - fireLen/2, dy + 45 + Math.sin(time*0.02)*10, x + 5, dy + 40);
-        ctx.fill();
-      }
-
-      ctx.fillStyle = '#7F1D1D';
+      // Магическое пламя
+      const fireLen = 30 + Math.random() * 30;
+      const fireGrad = ctx.createLinearGradient(x, dy + 25, x - fireLen, dy + 30);
+      fireGrad.addColorStop(0, '#F59E0B');
+      fireGrad.addColorStop(0.5, '#EF4444');
+      fireGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = fireGrad;
       ctx.beginPath();
-      ctx.moveTo(x + width/2, dy + 35);
-      ctx.quadraticCurveTo(x - 30, dy - 30 - flap, x + 10, dy + 60);
-      ctx.lineTo(x + width/2, dy + 35);
+      ctx.moveTo(x, dy + 20);
+      ctx.quadraticCurveTo(x - fireLen/2, dy + 15 + Math.sin(time*0.02)*15, x - fireLen, dy + 25);
+      ctx.quadraticCurveTo(x - fireLen/2, dy + 40 + Math.sin(time*0.02)*15, x, dy + 35);
       ctx.fill();
 
-    } else if (type === 'BEHOLDER') {
-      const float = Math.sin(time * 0.005) * 10;
-      const fy = y + float;
-      ctx.fillStyle = '#6D102A';
-      ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
-      for(let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI * 2) / 6 + time * 0.002;
-        const stalkX = x + width/2 + Math.cos(angle) * (width/2);
-        const stalkY = fy + height/2 + Math.sin(angle) * (height/2);
-        const eyeX = x + width/2 + Math.cos(angle) * (width/2 + 10);
-        const eyeY = fy + height/2 + Math.sin(angle) * (height/2 + 10);
-        ctx.strokeStyle = '#4D081A'; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(stalkX, stalkY); ctx.lineTo(eyeX, eyeY); ctx.stroke();
-        ctx.fillStyle = '#4D081A'; ctx.beginPath(); ctx.arc(eyeX, eyeY, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(eyeX, eyeY, 2, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'red'; 
-      const lookX = Math.cos(time * 0.003) * 4;
-      const lookY = Math.sin(time * 0.003) * 2;
-      ctx.beginPath(); ctx.arc(x + width/2 + lookX, fy + height/2 + lookY, 5, 0, Math.PI * 2); ctx.fill();
-    } else if (type === 'SLIME') {
-      const wobble = Math.sin(time * 0.01) * 6;
-      const wobbleX = width/2 + wobble;
-      const wobbleY = height/2 - wobble/2;
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
-      ctx.beginPath(); ctx.ellipse(x + width/2, y + height - wobbleY, wobbleX, wobbleY, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(21, 128, 61, 0.8)';
-      ctx.beginPath(); ctx.ellipse(x + width/2, y + height - wobbleY + 5, wobbleX/2, wobbleY/2, 0, 0, Math.PI * 2); ctx.fill();
-    } else if (type === 'MIMIC') {
-      const snap = Math.sin(time * 0.015) * 6;
-      ctx.fillStyle = '#261102';
-      ctx.beginPath(); ctx.roundRect(x, y + 10, width, height - 10, 4); ctx.fill();
-      ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 1;
-      for(let i=0; i<4; i++) {
-        ctx.beginPath(); ctx.moveTo(x + i*12, y + 10); ctx.lineTo(x + i*12, y + height); ctx.stroke();
-      }
-      ctx.fillStyle = '#A16207';
-      ctx.fillRect(x, y + 10, 6, height - 10);
-      ctx.fillRect(x + width - 6, y + 10, 6, height - 10);
-      ctx.fillStyle = '#EAB308';
-      for(let i=0; i<3; i++) {
-        ctx.beginPath(); ctx.arc(x + 10 + i*10, y + 22 + Math.sin(time*0.01+i)*3, 2, 0, Math.PI*2); ctx.fill();
-      }
-      ctx.fillStyle = '#BE123C';
-      ctx.beginPath();
-      ctx.moveTo(x + width/2 - 8, y + 20);
-      ctx.quadraticCurveTo(x + width + 15 + snap, y + 15 + Math.sin(time*0.015)*15, x + width/2 + 8, y + 35);
-      ctx.fill();
-      ctx.fillStyle = '#f8fafc';
-      for(let i=0; i<6; i++) {
-        const tx = x + 5 + i*7;
-        ctx.beginPath(); ctx.moveTo(tx, y + 10); ctx.lineTo(tx + 4, y + 18 + snap); ctx.lineTo(tx + 8, y + 10); ctx.fill();
-      }
-    } else if (type === 'BAT') {
-      const flap = Math.sin(time * 0.02) * 15;
-      ctx.fillStyle = '#374151';
-      ctx.beginPath();
-      ctx.moveTo(x + width/2, y + height/2);
-      ctx.quadraticCurveTo(x, y + flap, x - 10, y + height/2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + width/2, y + height/2);
-      ctx.quadraticCurveTo(x + width, y + flap, x + width + 10, y + height/2);
-      ctx.fill();
-      ctx.fillStyle = '#1F2937';
-      ctx.beginPath(); ctx.ellipse(x + width/2, y + height/2, 6, 8, 0, 0, Math.PI*2); ctx.fill();
     } else if (type === 'OGRE') {
+      const walk = Math.sin(time * 0.008) * 5;
+      // Тело
       ctx.fillStyle = '#166534';
-      ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 8); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 12); ctx.fill();
+      // Наплечник
       ctx.fillStyle = '#422006';
-      ctx.beginPath(); ctx.roundRect(x + 5, y + 15, 20, 15, 4); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x + 2, y + 10, 25, 20, 6); ctx.fill();
+      // Голова с клыками
       ctx.fillStyle = '#14532D';
-      ctx.beginPath(); ctx.roundRect(x + 15, y, 32, 28, 6); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x + 15, y, 35, 30, 8); ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.fillRect(x + 20, y + 22, 4, 6); ctx.fillRect(x + 40, y + 22, 4, 6);
+      
+      // Шипованная дубина
       ctx.save();
-      const clubSwing = Math.sin(time * 0.006) * 0.6;
-      ctx.translate(x + width - 10, y + 40);
+      const clubSwing = Math.sin(time * 0.006) * 0.7;
+      ctx.translate(x + width - 10, y + 45);
       ctx.rotate(clubSwing);
       ctx.fillStyle = '#422006';
-      ctx.fillRect(0, -25, 14, 45);
+      ctx.fillRect(0, -30, 16, 50);
       ctx.fillStyle = '#713F12';
-      ctx.beginPath(); ctx.arc(7, -25, 14, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(8, -30, 16, 0, Math.PI*2); ctx.fill();
+      // Шипы на дубине
       ctx.fillStyle = '#94A3B8';
-      for(let i=0; i<4; i++) {
-        const ang = (i * Math.PI * 2) / 4;
+      for(let i=0; i<5; i++) {
+        const ang = (i * Math.PI * 2) / 5;
         ctx.beginPath();
-        ctx.moveTo(7 + Math.cos(ang)*14, -25 + Math.sin(ang)*14);
-        ctx.lineTo(7 + Math.cos(ang)*22, -25 + Math.sin(ang)*22);
+        ctx.moveTo(8 + Math.cos(ang)*16, -30 + Math.sin(ang)*16);
+        ctx.lineTo(8 + Math.cos(ang)*24, -30 + Math.sin(ang)*24);
         ctx.stroke();
       }
       ctx.restore();
+
+    } else if (type === 'MIMIC') {
+      const snap = Math.sin(time * 0.015) * 8;
+      // Сундук
+      ctx.fillStyle = '#261102';
+      ctx.beginPath(); ctx.roundRect(x, y + 10, width, height - 10, 4); ctx.fill();
+      // Текстура дерева
+      ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 1;
+      for(let i=1; i<4; i++) {
+        ctx.beginPath(); ctx.moveTo(x + i*12, y + 10); ctx.lineTo(x + i*12, y + height); ctx.stroke();
+      }
+      // Оковка
+      ctx.fillStyle = '#A16207';
+      ctx.fillRect(x, y + 10, 6, height - 10);
+      ctx.fillRect(x + width - 6, y + 10, 6, height - 10);
+      
+      // Жуткие глаза в щели
+      ctx.fillStyle = '#EAB308';
+      for(let i=0; i<3; i++) {
+        ctx.beginPath(); ctx.arc(x + 10 + i*12, y + 22 + Math.sin(time*0.01+i)*4, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(x + 10 + i*12, y + 22 + Math.sin(time*0.01+i)*4, 1, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#EAB308';
+      }
+
+      // Длинный язык
+      ctx.fillStyle = '#BE123C';
+      ctx.beginPath();
+      ctx.moveTo(x + width/2 - 5, y + 25);
+      ctx.quadraticCurveTo(x + width + 25 + snap, y + 10 + Math.sin(time*0.015)*20, x + width/2 + 5, y + 40);
+      ctx.fill();
+
+      // Зубы
+      ctx.fillStyle = '#f8fafc';
+      for(let i=0; i<6; i++) {
+        const tx = x + 4 + i*7;
+        ctx.beginPath(); ctx.moveTo(tx, y + 10); ctx.lineTo(tx + 4, y + 20 + snap); ctx.lineTo(tx + 8, y + 10); ctx.fill();
+      }
+    } else if (type === 'SLIME') {
+      const wobble = Math.sin(time * 0.01) * 8;
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.4)'; // Полупрозрачное тело
+      ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(21, 128, 61, 0.8)'; // Ядро
+      ctx.beginPath(); ctx.arc(x + width/2, y + height - 15, 8, 0, Math.PI*2); ctx.fill();
+    } else if (type === 'BEHOLDER') {
+      const float = Math.sin(time * 0.005) * 12;
+      const fy = y + float;
+      ctx.fillStyle = '#6D102A';
+      ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
+      // Стебельки глаз
+      for(let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI * 2) / 6 + time * 0.002;
+        const sX = x + width/2 + Math.cos(angle) * (width/2);
+        const sY = fy + height/2 + Math.sin(angle) * (height/2);
+        const eX = x + width/2 + Math.cos(angle) * (width/2 + 15);
+        const eY = fy + height/2 + Math.sin(angle) * (height/2 + 15);
+        ctx.strokeStyle = '#4D081A'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(sX, sY); ctx.lineTo(eX, eY); ctx.stroke();
+        ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(eX, eY, 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(eX, eY, 3, 0, Math.PI*2); ctx.fill();
+      }
+      // Центральный глаз
+      ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.003)*5, fy + height/2 + Math.sin(time*0.003)*3, 6, 0, Math.PI * 2); ctx.fill();
     } else if (type === 'GHOST') {
-      const float = Math.sin(time * 0.004) * 10;
-      ctx.globalAlpha = 0.5 + Math.sin(time * 0.005) * 0.2;
+      const float = Math.sin(time * 0.004) * 15;
+      ctx.globalAlpha = 0.4 + Math.sin(time * 0.005) * 0.2;
       ctx.fillStyle = '#F8FAFC';
       ctx.beginPath();
       ctx.moveTo(x + width/2, y + float);
-      ctx.bezierCurveTo(x + width, y + float, x + width, y + height + float, x + width/2, y + height + 10 + float);
-      ctx.bezierCurveTo(x, y + height + float, x, y + float, x + width/2, y + float);
+      ctx.bezierCurveTo(x + width + 10, y + float, x + width + 10, y + height + float, x + width/2, y + height + 20 + float);
+      ctx.bezierCurveTo(x - 10, y + height + float, x - 10, y + float, x + width/2, y + float);
       ctx.fill();
-      ctx.fillStyle = '#6366F1';
-      ctx.beginPath(); ctx.arc(x + width/2 - 8, y + 20 + float, 3, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x + width/2 + 8, y + 20 + float, 3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#6366F1'; // Светящиеся глаза
+      ctx.beginPath(); ctx.arc(x + width/2 - 10, y + 25 + float, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + width/2 + 10, y + 25 + float, 4, 0, Math.PI*2); ctx.fill();
+    } else if (type === 'BAT') {
+      const flap = Math.sin(time * 0.02) * 20;
+      ctx.fillStyle = '#374151';
+      ctx.beginPath(); ctx.moveTo(x+width/2, y+height/2); ctx.quadraticCurveTo(x, y+flap, x-15, y+height/2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x+width/2, y+height/2); ctx.quadraticCurveTo(x+width, y+flap, x+width+15, y+height/2); ctx.fill();
+      ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.ellipse(x+width/2, y+height/2, 8, 10, 0, 0, Math.PI*2); ctx.fill();
     }
     
     ctx.restore();
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
+    // Частицы пыли в воздухе
     gameRef.current.ambientParticles.forEach(p => {
       ctx.fillStyle = '#EAB308';
       ctx.globalAlpha = p.opacity;
@@ -320,24 +330,61 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
-    let offset0 = gameRef.current.parallax[0] % 400;
-    for (let x = -offset0; x < VIRTUAL_WIDTH + 400; x += 400) {
+    // Каменные арки и колонны
+    let offsetArch = gameRef.current.parallax[0] % 600;
+    for (let x = -offsetArch; x < VIRTUAL_WIDTH + 600; x += 600) {
+      // Стены за арками
       ctx.fillStyle = '#0D0B12';
-      ctx.fillRect(x + 150, 0, 100, VIRTUAL_HEIGHT);
-      const torchX = x + 200;
-      const torchY = 300;
-      const flicker = Math.random() * 5;
-      const grad = ctx.createRadialGradient(torchX, torchY, 0, torchX, torchY, 20 + flicker);
-      grad.addColorStop(0, '#F59E0B'); grad.addColorStop(1, 'rgba(234, 179, 8, 0)');
-      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(torchX, torchY, 20 + flicker, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(x, 0, 600, GROUND_Y);
+
+      // Колонны
+      ctx.fillStyle = '#1A1621';
+      ctx.fillRect(x + 50, 0, 60, GROUND_Y);
+      ctx.fillRect(x + 490, 0, 60, GROUND_Y);
+
+      // Верхняя часть арки
+      ctx.beginPath();
+      ctx.ellipse(x + 300, 150, 250, 120, 0, Math.PI, 0, true);
+      ctx.lineTo(x + 550, 0);
+      ctx.lineTo(x + 50, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Текстура камня
+      ctx.strokeStyle = '#25202D';
+      ctx.lineWidth = 1;
+      for(let i=0; i<10; i++) {
+        ctx.beginPath(); ctx.moveTo(x+50, i*80); ctx.lineTo(x+110, i*80); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x+490, i*80); ctx.lineTo(x+550, i*80); ctx.stroke();
+      }
+
+      // Факелы на колоннах
+      const torchX1 = x + 80;
+      const torchX2 = x + 520;
+      [torchX1, torchX2].forEach(tx => {
+        const ty = 350;
+        const flicker = Math.random() * 6;
+        const grad = ctx.createRadialGradient(tx, ty, 0, tx, ty, 35 + flicker);
+        grad.addColorStop(0, 'rgba(245, 158, 11, 0.3)'); grad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(tx, ty, 35 + flicker, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#422006'; ctx.fillRect(tx - 3, ty + 10, 6, 25);
+        ctx.fillStyle = '#F59E0B'; ctx.beginPath(); ctx.moveTo(tx-5, ty+10); ctx.quadraticCurveTo(tx, ty-10-flicker, tx+5, ty+10); ctx.fill();
+      });
     }
 
+    // Пол
     ctx.fillStyle = '#0A080D';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
-    let offset2 = gameRef.current.parallax[2] % 100;
+    let offset2 = gameRef.current.parallax[2] % 80;
     ctx.strokeStyle = '#25202D';
-    for (let x = -offset2; x < VIRTUAL_WIDTH + 100; x += 100) {
+    for (let x = -offset2; x < VIRTUAL_WIDTH + 80; x += 80) {
       ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.lineTo(x, VIRTUAL_HEIGHT); ctx.stroke();
+    }
+    // Камни на полу
+    ctx.fillStyle = '#1A1621';
+    for(let i=0; i<15; i++) {
+      const rx = (i * 120 + gameRef.current.parallax[2] * 0.8) % (VIRTUAL_WIDTH + 100) - 50;
+      ctx.fillRect(rx, GROUND_Y + (i % 3) * 20 + 10, 10 + (i % 5), 5 + (i % 2));
     }
   };
 
