@@ -145,6 +145,7 @@ const GameCanvas: React.FC = () => {
         if (playerImgRef.current && !loadError) {
           ctx.drawImage(playerImgRef.current, Math.floor(p.x), Math.floor(p.y), p.width, p.height);
         } else {
+          // Запасной герой
           drawPixelRect(ctx, p.x + 12, p.y + 12, 48, 48, '#6226B3');
         }
       }
@@ -156,7 +157,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#6226B3';
       ctx.font = '16px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+      ctx.fillText('НАЖМИТЕ ИЛИ ПРОБЕЛ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
     }
 
     if (gameState === 'GAME_OVER') {
@@ -169,7 +170,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = 'white';
       ctx.font = '12px "Press Start 2P"';
       ctx.fillText(`СЧЕТ: ${score}м`, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
-      ctx.fillText('КЛИК ДЛЯ ВОЗРОЖДЕНИЯ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 70);
+      ctx.fillText('КЛИК ИЛИ ПРОБЕЛ ДЛЯ ВОЗРОЖДЕНИЯ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 70);
     }
   }, [gameState, score, invulnerableUntil, loadError]);
 
@@ -195,8 +196,6 @@ const GameCanvas: React.FC = () => {
       gameRef.current.bgOffset += currentSpeed * dtFactor;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1;
 
-      // Умный спавн с окном выживаемости
-      // Минимальное расстояние = скорость * время на прыжок и приземление (~1.2сек)
       const minDistance = currentSpeed * 60; 
       const lastMonster = monsters[monsters.length - 1];
       const distanceToLast = lastMonster ? (VIRTUAL_WIDTH - lastMonster.x) : Infinity;
@@ -269,7 +268,7 @@ const GameCanvas: React.FC = () => {
     setScore(0);
   };
 
-  const handleInput = () => {
+  const handleInput = useCallback(() => {
     if (gameState === 'START' || gameState === 'GAME_OVER') {
       setGameState('CLASS_SELECTION');
     } else if (gameState === 'PLAYING') {
@@ -280,7 +279,20 @@ const GameCanvas: React.FC = () => {
         player.jumpsRemaining--;
       }
     }
-  };
+  }, [gameState, selectedClass]);
+
+  // Обработка клавиши Пробел
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault(); // Предотвращаем прокрутку страницы
+        handleInput();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleInput]);
 
   if (!isImageLoaded) {
     return (
