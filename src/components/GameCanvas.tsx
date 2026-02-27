@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Player, Monster, MonsterType, ObstacleType, TelegramUser, GameStatus, EngineState } from '@/types/game';
+import { Player, Monster, MonsterType, ObstacleType, GameStatus, EngineState } from '@/types/game';
 import { useGameLoop } from '@/hooks/use-game-loop';
 import { calculateSpeed, checkCollision } from '@/lib/game-math';
 
 const VIRTUAL_WIDTH = 800;
 const VIRTUAL_HEIGHT = 400;
 const GRAVITY = 0.65;
-const JUMP_STRENGTH = -15;
+const JUMP_STRENGTH = -14;
 const GROUND_Y = 340;
 const PLAYER_X = 120;
 const PLAYER_SIZE = 72; // Увеличено на 50% (48 * 1.5)
@@ -56,7 +56,7 @@ const GameCanvas: React.FC = () => {
       setIsImageLoaded(true);
     };
     img.onerror = () => {
-      console.warn("Файл Knight2.webp не найден в /public. Используем программную отрисовку.");
+      console.warn("Файл Knight2.webp не найден. Используем программную отрисовку.");
       setLoadError(true);
       setIsImageLoaded(true);
     };
@@ -68,11 +68,11 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D, offset: number) => {
-    // Небо/Глубина
+    // Глубокий фон
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Стены с кирпичами (Параллакс)
+    // Параллакс стен (кирпичи)
     const p1 = offset * 0.4;
     const brickW = 100;
     const brickH = 50;
@@ -84,7 +84,7 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Пол
+    // Пол подземелья
     ctx.fillStyle = '#221e2b';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
     
@@ -99,129 +99,40 @@ const GameCanvas: React.FC = () => {
     if (playerImgRef.current && !loadError) {
       ctx.drawImage(playerImgRef.current, Math.floor(player.x), Math.floor(player.y), player.width, player.height);
     } else {
-      // Запасной Принц (на основе ваших цветов)
+      // Программный Принц (заглушка)
       const { x, y, width, height } = player;
       const bounce = player.state === 'RUNNING' ? Math.sin(Date.now() * 0.01) * 3 : 0;
       
-      // Плащ (Фиолетовый)
+      // Плащ
       ctx.fillStyle = '#6226B3';
       ctx.fillRect(x + 5, y + 35 + bounce, 45, 30);
-      
-      // Туника (Коричневая)
+      // Туника
       drawPixelRect(ctx, x + 20, y + 25 + bounce, 35, 40, '#4a2c1d');
-      
-      // Рукава (Оранжевые)
+      // Рукава
       drawPixelRect(ctx, x + 15, y + 30 + bounce, 10, 15, '#d35400');
       drawPixelRect(ctx, x + 50, y + 30 + bounce, 10, 15, '#d35400');
-
-      // Голова/Волосы (Золотистые)
+      // Голова
       drawPixelRect(ctx, x + 28, y + 10 + bounce, 24, 24, '#f1c40f');
     }
   };
 
   const drawMonster = (ctx: CanvasRenderingContext2D, m: Monster) => {
     if (m.type === 'BEHOLDER') {
-      // Детализированный Бехолдер
       const float = Math.sin(Date.now() * 0.005) * 10;
       const mY = m.y + float;
-      drawPixelRect(ctx, m.x, mY, m.width, m.height, '#833440'); // Тело
-      drawPixelRect(ctx, m.x + 10, mY + 10, m.width - 20, m.height - 20, '#ffffff'); // Глаз
-      drawPixelRect(ctx, m.x + 18, mY + 18, 12, 12, '#000000'); // Зрачок
-      // Щупальца
-      drawPixelRect(ctx, m.x - 5, mY + 5, 10, 5, '#833440');
-      drawPixelRect(ctx, m.x + m.width - 5, mY + 15, 10, 5, '#833440');
+      drawPixelRect(ctx, m.x, mY, m.width, m.height, '#833440');
+      drawPixelRect(ctx, m.x + 10, mY + 10, m.width - 20, m.height - 20, '#ffffff');
+      drawPixelRect(ctx, m.x + 18, mY + 18, 12, 12, '#000000');
     } else if (m.type === 'MIMIC') {
-      // Детализированный Мимик (Сундук)
-      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115'); // Дерево
-      drawPixelRect(ctx, m.x, m.y, m.width, 4, '#1a110a'); // Крышка
-      drawPixelRect(ctx, m.x + m.width/2 - 4, m.y + m.height/2 - 4, 8, 8, '#d4af37'); // Замок
-      drawPixelRect(ctx, m.x, m.y + 12, m.width, 2, '#1a110a'); // Ребро
+      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
+      drawPixelRect(ctx, m.x, m.y, m.width, 4, '#1a110a');
+      drawPixelRect(ctx, m.x + m.width/2 - 4, m.y + m.height/2 - 4, 8, 8, '#d4af37');
     } else {
-      // Скелет (Высокое препятствие)
-      drawPixelRect(ctx, m.x + 5, m.y, m.width - 10, m.height, '#e0e0e0'); // Кости
-      drawPixelRect(ctx, m.x + 10, m.y + 10, 8, 8, '#000000'); // Глазницы
+      drawPixelRect(ctx, m.x + 5, m.y, m.width - 10, m.height, '#e0e0e0');
+      drawPixelRect(ctx, m.x + 10, m.y + 10, 8, 8, '#000000');
       drawPixelRect(ctx, m.x + m.width - 18, m.y + 10, 8, 8, '#000000');
     }
   };
-
-  const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
-    if (engineRef.current.status !== 'PLAYING') return;
-
-    const dtFactor = deltaTime / 16.67;
-    engineRef.current.elapsedTime += deltaTime / 1000;
-    engineRef.current.speed = calculateSpeed(engineRef.current.elapsedTime);
-    const currentSpeed = engineRef.current.speed;
-
-    const { player, monsters } = gameRef.current;
-    
-    // Физика
-    player.vy += GRAVITY * dtFactor;
-    player.y += player.vy * dtFactor;
-
-    if (player.y > GROUND_Y - player.height) {
-      player.y = GROUND_Y - player.height;
-      player.vy = 0;
-      player.state = 'RUNNING';
-      player.jumpsRemaining = 2;
-    }
-
-    gameRef.current.bgOffset += currentSpeed * dtFactor;
-    engineRef.current.distance += currentSpeed * dtFactor * 0.1;
-
-    // Генерация на основе скорости
-    const spawnDelay = 2200 / (currentSpeed / 5);
-    if (timestamp - gameRef.current.lastSpawnTime > spawnDelay) {
-      const rand = Math.random();
-      let type: MonsterType = 'MIMIC';
-      let obsType: ObstacleType = 'GROUND';
-      let mY = GROUND_Y - 48;
-      let mH = 48;
-
-      if (rand > 0.65) {
-        type = 'BEHOLDER';
-        obsType = 'AIR';
-        mY = GROUND_Y - 160;
-      } else if (rand > 0.35) {
-        type = 'SKELETON';
-        obsType = 'TALL';
-        mY = GROUND_Y - 90;
-        mH = 90;
-      }
-
-      monsters.push({
-        id: Math.random().toString(36).substr(2, 9),
-        type,
-        obstacleType: obsType,
-        x: VIRTUAL_WIDTH,
-        y: mY,
-        width: 48,
-        height: mH,
-        speed: currentSpeed,
-      });
-      gameRef.current.lastSpawnTime = timestamp;
-    }
-
-    // Обработка монстров
-    for (let i = monsters.length - 1; i >= 0; i--) {
-      const m = monsters[i];
-      m.x -= currentSpeed * dtFactor;
-
-      if (checkCollision(player, m, 20)) {
-        engineRef.current.status = 'GAME_OVER';
-        setGameState('GAME_OVER');
-        if (Math.floor(engineRef.current.distance) > highScore) {
-          setHighScore(Math.floor(engineRef.current.distance));
-        }
-      }
-
-      if (m.x + m.width < -100) {
-        monsters.splice(i, 1);
-      }
-    }
-
-    setScore(Math.floor(engineRef.current.distance));
-    draw();
-  }, [highScore]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -230,12 +141,12 @@ const GameCanvas: React.FC = () => {
     if (!ctx) return;
 
     if (!isImageLoaded) {
-      ctx.fillStyle = 'black';
-      ctx.fillRect(0,0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+      ctx.fillStyle = '#0a080d';
+      ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
       ctx.font = '16px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ЗАГРУЗКА РЕСУРСОВ...', VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2);
+      ctx.fillText('ЗАГРУЗКА...', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
       return;
     }
 
@@ -245,38 +156,120 @@ const GameCanvas: React.FC = () => {
 
     if (gameState === 'START') {
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(0,0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+      ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
       ctx.font = '20px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ СТАРТА', VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2);
+      ctx.fillText('НАЖМИТЕ ДЛЯ СТАРТА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
     }
 
     if (gameState === 'GAME_OVER') {
       ctx.fillStyle = 'rgba(40,0,0,0.7)';
-      ctx.fillRect(0,0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+      ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#ff0000';
       ctx.font = '32px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ПОГИБ', VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2 - 20);
+      ctx.fillText('ПОГИБ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
       ctx.fillStyle = 'white';
       ctx.font = '14px "Press Start 2P"';
-      ctx.fillText('КЛИК ДЛЯ ПЕРЕЗАПУСКА', VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2 + 40);
+      ctx.fillText('КЛИК ДЛЯ ПЕРЕЗАПУСКА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
     }
   }, [isImageLoaded, gameState]);
 
-  useGameLoop(handleUpdate, gameState === 'PLAYING' || gameState === 'START');
+  const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
+    if (engineRef.current.status === 'PLAYING') {
+      const dtFactor = deltaTime / 16.67;
+      engineRef.current.elapsedTime += deltaTime / 1000;
+      engineRef.current.speed = calculateSpeed(engineRef.current.elapsedTime);
+      const currentSpeed = engineRef.current.speed;
+
+      const { player, monsters } = gameRef.current;
+      
+      // Физика игрока
+      player.vy += GRAVITY * dtFactor;
+      player.y += player.vy * dtFactor;
+
+      if (player.y > GROUND_Y - player.height) {
+        player.y = GROUND_Y - player.height;
+        player.vy = 0;
+        player.state = 'RUNNING';
+        player.jumpsRemaining = 2;
+      }
+
+      gameRef.current.bgOffset += currentSpeed * dtFactor;
+      engineRef.current.distance += currentSpeed * dtFactor * 0.1;
+
+      // Спавн препятствий
+      const spawnDelay = 2200 / (currentSpeed / 5);
+      if (timestamp - gameRef.current.lastSpawnTime > spawnDelay) {
+        const rand = Math.random();
+        let type: MonsterType = 'MIMIC';
+        let obsType: ObstacleType = 'GROUND';
+        let mY = GROUND_Y - 48;
+        let mH = 48;
+
+        if (rand > 0.7) {
+          type = 'BEHOLDER';
+          obsType = 'AIR';
+          mY = GROUND_Y - 160;
+        } else if (rand > 0.4) {
+          type = 'SKELETON';
+          obsType = 'TALL';
+          mY = GROUND_Y - 90;
+          mH = 90;
+        }
+
+        monsters.push({
+          id: Math.random().toString(36).substr(2, 9),
+          type,
+          obstacleType: obsType,
+          x: VIRTUAL_WIDTH,
+          y: mY,
+          width: 48,
+          height: mH,
+          speed: currentSpeed,
+        });
+        gameRef.current.lastSpawnTime = timestamp;
+      }
+
+      // Обновление монстров и коллизии
+      for (let i = monsters.length - 1; i >= 0; i--) {
+        const m = monsters[i];
+        m.x -= currentSpeed * dtFactor;
+
+        if (checkCollision(player, m, 20)) {
+          engineRef.current.status = 'GAME_OVER';
+          setGameState('GAME_OVER');
+          if (Math.floor(engineRef.current.distance) > highScore) {
+            setHighScore(Math.floor(engineRef.current.distance));
+          }
+        }
+
+        if (m.x + m.width < -100) {
+          monsters.splice(i, 1);
+        }
+      }
+      setScore(Math.floor(engineRef.current.distance));
+    }
+    
+    draw();
+  }, [highScore, draw]);
+
+  useGameLoop(handleUpdate, true);
 
   const handleInput = () => {
     if (gameState !== 'PLAYING') {
+      // Сброс состояния для новой игры
       engineRef.current.status = 'PLAYING';
       engineRef.current.elapsedTime = 0;
       engineRef.current.distance = 0;
       gameRef.current.monsters = [];
       gameRef.current.player.y = GROUND_Y - PLAYER_SIZE;
       gameRef.current.player.vy = 0;
+      gameRef.current.player.jumpsRemaining = 2;
       gameRef.current.lastSpawnTime = performance.now();
       setGameState('PLAYING');
+      setScore(0);
     } else {
       const { player } = gameRef.current;
       if (player.jumpsRemaining > 0) {
@@ -288,7 +281,12 @@ const GameCanvas: React.FC = () => {
   };
 
   useEffect(() => {
-    const kd = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); handleInput(); } };
+    const kd = (e: KeyboardEvent) => { 
+      if (e.code === 'Space') { 
+        e.preventDefault(); 
+        handleInput(); 
+      } 
+    };
     window.addEventListener('keydown', kd);
     return () => window.removeEventListener('keydown', kd);
   }, [gameState]);
