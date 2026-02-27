@@ -38,7 +38,7 @@ export interface EngineState {
   elapsedTime: number;
 }
 
-export type CharacterClassName = 'FIGHTER' | 'ROGUE' | 'WIZARD';
+export type CharacterClassName = 'FIGHTER' | 'ROGUE' | 'WIZARD' | 'BARD';
 
 export interface CharacterClass {
   name: CharacterClassName;
@@ -74,6 +74,7 @@ declare global {
         initDataUnsafe: {
           user?: TelegramUser;
         };
+        headerColor: string;
       };
     };
   }
