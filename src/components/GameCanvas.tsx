@@ -40,7 +40,6 @@ const GameCanvas: React.FC = () => {
   const [invulnerableUntil, setInvulnerableUntil] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
 
-  // Фиксированное виртуальное разрешение для портретного режима
   const VIRTUAL_WIDTH = 450;
   const VIRTUAL_HEIGHT = 800;
   const GROUND_Y = VIRTUAL_HEIGHT - 100;
@@ -107,7 +106,7 @@ const GameCanvas: React.FC = () => {
       setIsImageLoaded(true);
     };
     img.onerror = () => setIsImageLoaded(true);
-  }, [VIRTUAL_WIDTH, VIRTUAL_HEIGHT]);
+  }, []);
 
   const createJumpEffect = (x: number, y: number, color = '#6226B3', isSecond = false) => {
     const count = isSecond ? 15 : 10;
@@ -131,76 +130,178 @@ const GameCanvas: React.FC = () => {
     
     if (type === 'DRAGON') {
       const flap = Math.sin(time * 0.004) * 20;
+      // Крылья
       ctx.fillStyle = '#450A0A';
       ctx.beginPath();
-      ctx.moveTo(x + 50, y + 50);
-      ctx.lineTo(x - 30, y + 10 - flap);
-      ctx.lineTo(x + 20, y + 70);
+      ctx.moveTo(x + width/2, y + height/2);
+      ctx.quadraticCurveTo(x - 40, y - 20 - flap, x + 20, y + 60);
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(x + width - 50, y + 50);
-      ctx.lineTo(x + width + 30, y + 10 - flap);
-      ctx.lineTo(x + width - 20, y + 70);
+      ctx.moveTo(x + width/2, y + height/2);
+      ctx.quadraticCurveTo(x + width + 40, y - 20 - flap, x + width - 20, y + 60);
       ctx.fill();
+      // Тело
       ctx.fillStyle = '#7F1D1D'; 
-      ctx.fillRect(x + 30, y + 40, width - 60, height - 50);
+      ctx.fillRect(x + 20, y + 30, width - 40, height - 40);
+      // Чешуя
       ctx.fillStyle = '#991B1B';
-      for(let i=0; i<3; i++) for(let j=0; j<3; j++) ctx.fillRect(x + 45 + i*15, y + 50 + j*10, 4, 4);
+      for(let i=0; i<4; i++) for(let j=0; j<3; j++) ctx.fillRect(x + 35 + i*12, y + 45 + j*8, 4, 4);
+      // Голова
       ctx.fillStyle = '#7F1D1D';
-      ctx.fillRect(x + 5, y + 15, 30, 30);
-      ctx.fillRect(x + 25, y + 30, 20, 20);
+      ctx.fillRect(x + 5, y + 10, 35, 30);
+      // Рога
       ctx.fillStyle = '#450A0A';
-      ctx.fillRect(x + 10, y + 5, 4, 12); ctx.fillRect(x + 25, y + 5, 4, 12);
+      ctx.fillRect(x + 10, y, 4, 12); ctx.fillRect(x + 25, y, 4, 12);
+      // Глаза
       ctx.fillStyle = '#FACC15';
-      ctx.fillRect(x + 12, y + 22, 6, 6);
-      const fireSize = Math.random() * 8;
-      ctx.fillStyle = '#EA580C';
-      ctx.fillRect(x - 5 - fireSize, y + 35, 15 + fireSize, 6);
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#FACC15';
+      ctx.fillRect(x + 12, y + 18, 6, 6);
+      ctx.shadowBlur = 0;
+      // Огонь из пасти
+      if (Math.random() > 0.3) {
+        const fireSize = Math.random() * 15;
+        const grad = ctx.createLinearGradient(x + 5, y + 25, x - 20 - fireSize, y + 30);
+        grad.addColorStop(0, '#EA580C');
+        grad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(x + 5, y + 25);
+        ctx.lineTo(x - 20 - fireSize, y + 20 + Math.random()*10);
+        ctx.lineTo(x + 5, y + 35);
+        ctx.fill();
+      }
     } else if (type === 'BEHOLDER') {
       const float = Math.sin(time * 0.005) * 10;
       const fy = y + float;
+      // Тело
       ctx.fillStyle = '#6D102A';
       ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
-      for(let i = 0; i < 5; i++) {
-        const angle = (i * Math.PI * 2) / 5 + time * 0.002;
-        const ox = x + width/2 + Math.cos(angle) * (width/2 + 5);
-        const oy = fy + height/2 + Math.sin(angle) * (height/2 + 5);
-        ctx.fillStyle = '#4D081A'; ctx.beginPath(); ctx.arc(ox, oy, 4, 0, Math.PI * 2); ctx.fill();
+      // Щупальца с глазами
+      for(let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI * 2) / 6 + time * 0.002;
+        const stalkX = x + width/2 + Math.cos(angle) * (width/2);
+        const stalkY = fy + height/2 + Math.sin(angle) * (height/2);
+        const eyeX = x + width/2 + Math.cos(angle) * (width/2 + 10);
+        const eyeY = fy + height/2 + Math.sin(angle) * (height/2 + 10);
+        ctx.strokeStyle = '#4D081A'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(stalkX, stalkY); ctx.lineTo(eyeX, eyeY); ctx.stroke();
+        ctx.fillStyle = '#4D081A'; ctx.beginPath(); ctx.arc(eyeX, eyeY, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(eyeX, eyeY, 2, 0, Math.PI * 2); ctx.fill();
       }
+      // Главный глаз
       ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time * 0.003) * 4, fy + height/2 + Math.sin(time * 0.003) * 2, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'red'; 
+      const lookX = Math.cos(time * 0.003) * 4;
+      const lookY = Math.sin(time * 0.003) * 2;
+      ctx.beginPath(); ctx.arc(x + width/2 + lookX, fy + height/2 + lookY, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(x + width/2 + lookX, fy + height/2 + lookY, 2, 0, Math.PI * 2); ctx.fill();
     } else if (type === 'SLIME') {
-      const wobble = Math.sin(time * 0.01) * 4;
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.8)';
-      ctx.beginPath(); ctx.ellipse(x + width/2, y + height/2 + wobble/2, width/2 + wobble, height/2 - wobble/2, 0, 0, Math.PI * 2); ctx.fill();
-    } else if (type === 'BAT') {
-      const flap = Math.sin(time * 0.02) * 10;
-      ctx.fillStyle = '#4B5563';
-      ctx.beginPath(); ctx.moveTo(x, y + flap); ctx.lineTo(x + width/2, y + height/2); ctx.lineTo(x + width, y + flap); ctx.stroke();
-      ctx.fillRect(x + width/2 - 4, y + height/2 - 4, 8, 8);
-    } else if (type === 'OGRE') {
-      ctx.fillStyle = '#14532D';
-      ctx.fillRect(x + 10, y + 10, width - 20, height - 10);
-      ctx.fillStyle = '#3F6212';
-      ctx.fillRect(x + 20, y, 20, 20);
-      ctx.fillStyle = '#422006';
-      ctx.fillRect(x - 5, y + 20, 15, 40);
-    } else if (type === 'GHOST') {
-      ctx.fillStyle = 'rgba(226, 232, 240, 0.6)';
+      const wobble = Math.sin(time * 0.01) * 6;
+      const wobbleX = width/2 + wobble;
+      const wobbleY = height/2 - wobble/2;
+      // Внешний слой
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+      ctx.beginPath(); ctx.ellipse(x + width/2, y + height - wobbleY, wobbleX, wobbleY, 0, 0, Math.PI * 2); ctx.fill();
+      // Ядро
+      ctx.fillStyle = 'rgba(21, 128, 61, 0.8)';
+      ctx.beginPath(); ctx.ellipse(x + width/2, y + height - wobbleY + 5, wobbleX/2, wobbleY/2, 0, 0, Math.PI * 2); ctx.fill();
+      // Пузырьки
+      ctx.fillStyle = 'white';
+      ctx.globalAlpha = 0.4;
+      for(let i=0; i<3; i++) {
+        const bx = x + width/2 + Math.sin(time * 0.005 + i) * 10;
+        const by = y + height - 10 - ( (time/10 + i*20) % 20);
+        ctx.beginPath(); ctx.arc(bx, by, 2, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (type === 'MIMIC') {
+      // Сундук
+      ctx.fillStyle = '#451A03';
+      ctx.fillRect(x, y + 10, width, height - 10);
+      ctx.fillStyle = '#78350F';
+      ctx.fillRect(x + 5, y + 15, width - 10, height - 20);
+      // Оковки
+      ctx.fillStyle = '#A16207';
+      ctx.fillRect(x, y + 10, 4, height - 10);
+      ctx.fillRect(x + width - 4, y + 10, 4, height - 10);
+      // Зубы
+      ctx.fillStyle = 'white';
+      const snap = Math.sin(time * 0.02) * 5;
+      for(let i=0; i<5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(x + i*8, y + 10);
+        ctx.lineTo(x + 4 + i*8, y + 18 + snap);
+        ctx.lineTo(x + 8 + i*8, y + 10);
+        ctx.fill();
+      }
+      // Язык
+      ctx.fillStyle = '#BE123C';
       ctx.beginPath();
-      ctx.moveTo(x + width/2, y);
-      ctx.quadraticCurveTo(x + width, y + height/4, x + width, y + height/2);
-      ctx.lineTo(x + width, y + height);
-      ctx.lineTo(x, y + height);
-      ctx.lineTo(x, y + height/2);
-      ctx.quadraticCurveTo(x, y + height/4, x + width/2, y);
+      ctx.moveTo(x + width/2 - 5, y + 15);
+      ctx.quadraticCurveTo(x + width + 10, y + 15 + Math.sin(time*0.01)*10, x + width/2 + 5, y + 25);
       ctx.fill();
-      ctx.fillStyle = '#333';
-      ctx.fillRect(x + 10, y + 15, 4, 4);
-      ctx.fillRect(x + width - 14, y + 15, 4, 4);
-    } else {
-      ctx.fillStyle = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS]?.color || '#333';
-      ctx.fillRect(x, y, width, height);
+    } else if (type === 'BAT') {
+      const flap = Math.sin(time * 0.02) * 15;
+      ctx.fillStyle = '#374151';
+      // Крылья
+      ctx.beginPath();
+      ctx.moveTo(x + width/2, y + height/2);
+      ctx.quadraticCurveTo(x, y + flap, x - 10, y + height/2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + width/2, y + height/2);
+      ctx.quadraticCurveTo(x + width, y + flap, x + width + 10, y + height/2);
+      ctx.fill();
+      // Тело
+      ctx.fillStyle = '#1F2937';
+      ctx.beginPath(); ctx.ellipse(x + width/2, y + height/2, 6, 8, 0, 0, Math.PI*2); ctx.fill();
+      // Глаза
+      ctx.fillStyle = '#EF4444';
+      ctx.fillRect(x + width/2 - 3, y + height/2 - 2, 2, 2);
+      ctx.fillRect(x + width/2 + 1, y + height/2 - 2, 2, 2);
+    } else if (type === 'OGRE') {
+      // Тело
+      ctx.fillStyle = '#14532D';
+      ctx.fillRect(x + 10, y + 15, width - 20, height - 15);
+      // Голова
+      ctx.fillStyle = '#166534';
+      ctx.fillRect(x + 15, y, 30, 25);
+      // Рог/Уши
+      ctx.beginPath(); ctx.moveTo(x + 15, y); ctx.lineTo(x + 10, y - 10); ctx.lineTo(x + 20, y); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x + 45, y); ctx.lineTo(x + 50, y - 10); ctx.lineTo(x + 40, y); ctx.fill();
+      // Дубина
+      ctx.save();
+      ctx.translate(x + width, y + height/2);
+      ctx.rotate(Math.sin(time * 0.005) * 0.5);
+      ctx.fillStyle = '#422006';
+      ctx.fillRect(0, -30, 12, 40);
+      ctx.fillStyle = '#713F12';
+      ctx.beginPath(); ctx.arc(6, -30, 10, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    } else if (type === 'GHOST') {
+      const float = Math.sin(time * 0.004) * 10;
+      ctx.globalAlpha = 0.5 + Math.sin(time * 0.005) * 0.2;
+      ctx.fillStyle = '#F8FAFC';
+      // Тело призрака
+      ctx.beginPath();
+      ctx.moveTo(x + width/2, y + float);
+      ctx.bezierCurveTo(x + width, y + float, x + width, y + height + float, x + width/2, y + height + 10 + float);
+      ctx.bezierCurveTo(x, y + height + float, x, y + float, x + width/2, y + float);
+      ctx.fill();
+      // Хвост
+      ctx.beginPath();
+      for(let i=0; i<3; i++) {
+        const tx = x + (i * width/3);
+        const ty = y + height + float + Math.sin(time * 0.01 + i) * 5;
+        ctx.lineTo(tx, ty);
+      }
+      ctx.fill();
+      // Глаза
+      ctx.fillStyle = '#6366F1';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#6366F1';
+      ctx.beginPath(); ctx.arc(x + width/2 - 8, y + 20 + float, 3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + width/2 + 8, y + 20 + float, 3, 0, Math.PI*2); ctx.fill();
     }
     
     ctx.restore();
@@ -242,6 +343,10 @@ const GameCanvas: React.FC = () => {
     ctx.strokeStyle = '#25202D';
     for (let x = -offset2; x < VIRTUAL_WIDTH + 100; x += 100) {
       ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.lineTo(x, VIRTUAL_HEIGHT); ctx.stroke();
+      // Камни на полу
+      ctx.fillStyle = '#1A1621';
+      ctx.fillRect(x + 20, GROUND_Y + 20, 30, 10);
+      ctx.fillRect(x + 60, GROUND_Y + 50, 20, 8);
     }
   };
 
@@ -320,7 +425,6 @@ const GameCanvas: React.FC = () => {
 
       engineRef.current.distance += currentSpeed * dtFactor * 0.1;
 
-      // Логика спавна монстров с учетом окна выживаемости
       if (timestamp - gameRef.current.collisionCooldown > (1600 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
@@ -447,7 +551,6 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Игровая зона 2/3 */}
       <div 
         ref={containerRef}
         className={cn(
@@ -474,7 +577,7 @@ const GameCanvas: React.FC = () => {
           ref={canvasRef} 
           width={VIRTUAL_WIDTH} 
           height={VIRTUAL_HEIGHT} 
-          className="image-pixelated w-full h-full block" 
+          className="image-pixelated w-full h-full block mx-auto" 
         />
         
         {gameState === 'GAME_OVER' && (
@@ -488,7 +591,6 @@ const GameCanvas: React.FC = () => {
         )}
       </div>
 
-      {/* Лог боя 1/3 */}
       <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide">
         {combatLog.map((log) => (
           <div key={log.id} className={cn(
