@@ -39,10 +39,10 @@ const GameCanvas: React.FC = () => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [invulnerableUntil, setInvulnerableUntil] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
-  const [dimensions, setDimensions] = useState({ width: 450, height: 800 });
 
-  const VIRTUAL_WIDTH = dimensions.width;
-  const VIRTUAL_HEIGHT = dimensions.height;
+  // Фиксированное виртуальное разрешение для портретного режима
+  const VIRTUAL_WIDTH = 450;
+  const VIRTUAL_HEIGHT = 800;
   const GROUND_Y = VIRTUAL_HEIGHT - 100;
   const PLAYER_X = 60;
   const GRAVITY = 0.65;
@@ -76,20 +76,6 @@ const GameCanvas: React.FC = () => {
   });
 
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight
-        });
-      }
-    };
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-
-  useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [combatLog]);
 
@@ -106,8 +92,8 @@ const GameCanvas: React.FC = () => {
     gameRef.current.ambientParticles = [];
     for (let i = 0; i < 40; i++) {
       gameRef.current.ambientParticles.push({
-        x: Math.random() * 800, 
-        y: Math.random() * 800,
+        x: Math.random() * VIRTUAL_WIDTH, 
+        y: Math.random() * VIRTUAL_HEIGHT,
         speed: 0.2 + Math.random() * 0.5,
         size: 1 + Math.random() * 2,
         opacity: 0.1 + Math.random() * 0.4
@@ -121,7 +107,7 @@ const GameCanvas: React.FC = () => {
       setIsImageLoaded(true);
     };
     img.onerror = () => setIsImageLoaded(true);
-  }, []);
+  }, [VIRTUAL_WIDTH, VIRTUAL_HEIGHT]);
 
   const createJumpEffect = (x: number, y: number, color = '#6226B3', isSecond = false) => {
     const count = isSecond ? 15 : 10;
@@ -334,6 +320,7 @@ const GameCanvas: React.FC = () => {
 
       engineRef.current.distance += currentSpeed * dtFactor * 0.1;
 
+      // Логика спавна монстров с учетом окна выживаемости
       if (timestamp - gameRef.current.collisionCooldown > (1600 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
