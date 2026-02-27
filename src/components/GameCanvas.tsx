@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Player, Monster, MonsterType, GameStatus, EngineState, CharacterClassName } from '@/types/game';
 import { useGameLoop } from '@/hooks/use-game-loop';
 import { calculateSpeed, checkCollision } from '@/lib/game-math';
@@ -28,6 +28,7 @@ interface AmbientParticle {
 }
 
 const GameCanvas: React.FC = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
   const playerImgRef = useRef<HTMLImageElement | null>(null);
@@ -40,9 +41,11 @@ const GameCanvas: React.FC = () => {
   const [isShaking, setIsShaking] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   
-  // Динамические константы разрешения
-  const VIRTUAL_WIDTH = isLandscape ? 800 : 450;
-  const VIRTUAL_HEIGHT = isLandscape ? 450 : 800;
+  // Состояние реальных размеров холста
+  const [dimensions, setDimensions] = useState({ width: 800, height: 450 });
+
+  const VIRTUAL_WIDTH = dimensions.width;
+  const VIRTUAL_HEIGHT = dimensions.height;
   const GROUND_Y = VIRTUAL_HEIGHT - 100;
   const PLAYER_X = 80;
   const GRAVITY = 0.65;
@@ -75,14 +78,20 @@ const GameCanvas: React.FC = () => {
     collisionCooldown: 0,
   });
 
-  // Отслеживание ориентации
+  // Отслеживание размеров и ориентации
   useEffect(() => {
-    const checkOrientation = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight);
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.clientWidth;
+        const height = containerRef.current.clientHeight;
+        setDimensions({ width, height });
+        setIsLandscape(width > height);
+      }
     };
-    checkOrientation();
-    window.addEventListener('resize', checkOrientation);
-    return () => window.removeEventListener('resize', checkOrientation);
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
   useEffect(() => {
@@ -102,8 +111,8 @@ const GameCanvas: React.FC = () => {
     gameRef.current.ambientParticles = [];
     for (let i = 0; i < 40; i++) {
       gameRef.current.ambientParticles.push({
-        x: Math.random() * 800, // Используем макс ширину для запаса
-        y: Math.random() * 800,
+        x: Math.random() * 1200, 
+        y: Math.random() * 1200,
         speed: 0.2 + Math.random() * 0.5,
         size: 1 + Math.random() * 2,
         opacity: 0.1 + Math.random() * 0.4
@@ -183,6 +192,18 @@ const GameCanvas: React.FC = () => {
       const wobble = Math.sin(time * 0.01) * 4;
       ctx.fillStyle = 'rgba(74, 222, 128, 0.8)';
       ctx.beginPath(); ctx.ellipse(x + width/2, y + height/2 + wobble/2, width/2 + wobble, height/2 - wobble/2, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'BAT') {
+      const flap = Math.sin(time * 0.02) * 10;
+      ctx.fillStyle = '#4B5563';
+      ctx.beginPath(); ctx.moveTo(x, y + flap); ctx.lineTo(x + width/2, y + height/2); ctx.lineTo(x + width, y + flap); ctx.stroke();
+      ctx.fillRect(x + width/2 - 4, y + height/2 - 4, 8, 8);
+    } else if (type === 'OGRE') {
+      ctx.fillStyle = '#14532D';
+      ctx.fillRect(x + 10, y + 10, width - 20, height - 10); // Body
+      ctx.fillStyle = '#3F6212';
+      ctx.fillRect(x + 20, y, 20, 20); // Head
+      ctx.fillStyle = '#422006';
+      ctx.fillRect(x - 5, y + 20, 15, 40); // Club
     } else {
       ctx.fillStyle = '#333';
       ctx.fillRect(x, y, width, height);
@@ -281,7 +302,7 @@ const GameCanvas: React.FC = () => {
       ctx.textAlign = 'center';
       ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
     }
-  }, [gameState, invulnerableUntil, selectedClass, isLandscape]);
+  }, [gameState, invulnerableUntil, selectedClass, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, GROUND_Y]);
 
   const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
     if (gameState === 'PLAYING') {
@@ -437,10 +458,13 @@ const GameCanvas: React.FC = () => {
       )}
 
       {/* Основная зона */}
-      <div className={cn(
-        "relative flex-1 flex flex-col overflow-hidden",
-        isLandscape ? "h-full" : "h-[66vh]"
-      )}>
+      <div 
+        ref={containerRef}
+        className={cn(
+          "relative flex-1 flex flex-col overflow-hidden",
+          isLandscape ? "h-full w-full" : "h-[66vh] w-full"
+        )}
+      >
         {/* Верхняя панель UI */}
         {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
           <div className="absolute top-0 left-0 right-0 h-[6vh] flex justify-between items-center bg-[#0D0B12]/60 p-3 px-6 backdrop-blur-sm z-10">
@@ -467,7 +491,7 @@ const GameCanvas: React.FC = () => {
             ref={canvasRef} 
             width={VIRTUAL_WIDTH} 
             height={VIRTUAL_HEIGHT} 
-            className="image-pixelated w-full h-full object-contain" 
+            className="image-pixelated w-full h-full block" 
           />
           
           {gameState === 'GAME_OVER' && (
@@ -482,7 +506,7 @@ const GameCanvas: React.FC = () => {
         </div>
       </div>
 
-      {/* Лог боя (Скрыт в ландшафте или вынесен сбоку) */}
+      {/* Лог боя */}
       {gameState === 'PLAYING' && !isLandscape && (
         <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide">
           {combatLog.map((log) => (
