@@ -47,6 +47,7 @@ export interface CharacterClass {
   armorClass: number;
   maxHp: number;
   jumpMultiplier: number;
+  maxJumps: number;
   abilityName: string;
   abilityCooldown: number;
 }

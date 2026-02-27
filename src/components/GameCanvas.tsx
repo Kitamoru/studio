@@ -53,12 +53,12 @@ const GameCanvas: React.FC = () => {
       height: ASSET_MANIFEST.PLAYER.height, 
       vy: 0, 
       state: 'RUNNING', 
-      jumpsRemaining: 2, 
-      maxJumps: 2,
+      jumpsRemaining: 1, 
+      maxJumps: 1,
       frame: 0 
     } as Player,
     monsters: [] as Monster[],
-    parallax: [0, 0, 0], // Слои фона
+    parallax: [0, 0, 0],
     particles: [] as Particle[],
     collisionCooldown: 0,
   });
@@ -74,12 +74,12 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   const createJumpEffect = (x: number, y: number) => {
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       gameRef.current.particles.push({
         x,
         y,
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 2,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.5) * 4,
         life: 1.0,
         color: '#6226B3'
       });
@@ -88,59 +88,142 @@ const GameCanvas: React.FC = () => {
 
   const drawMonster = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const { x, y, width, height, type } = m;
-    const config = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS] || ASSET_MANIFEST.MONSTERS.SLIME;
+    const time = Date.now();
     
     ctx.save();
-    ctx.fillStyle = config.color;
     
-    // Рисуем детального монстра (например, Бехолдера)
     if (type === 'BEHOLDER') {
-      const float = Math.sin(Date.now() * 0.005) * 8;
+      const float = Math.sin(time * 0.005) * 10;
       const fy = y + float;
-      // Тело
-      ctx.fillRect(x, fy, width, height);
-      // Глаз
+      
+      // Тело (основное)
+      ctx.fillStyle = '#6D102A';
+      ctx.beginPath();
+      ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Щупальца/Глазные отростки
+      for(let i = 0; i < 5; i++) {
+        const angle = (i * Math.PI * 2) / 5 + time * 0.002;
+        const ox = x + width/2 + Math.cos(angle) * (width/2 + 5);
+        const oy = fy + height/2 + Math.sin(angle) * (height/2 + 5);
+        ctx.fillStyle = '#4D081A';
+        ctx.beginPath();
+        ctx.arc(ox, oy, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillRect(ox - 1, oy - 1, 2, 2);
+      }
+      
+      // Центральный глаз
       ctx.fillStyle = 'white';
-      ctx.fillRect(x + width/4, fy + height/4, width/2, height/2);
+      ctx.beginPath();
+      ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Зрачок (следит)
       ctx.fillStyle = 'red';
-      ctx.fillRect(x + width/2 - 2, fy + height/2 - 2, 4, 4);
+      const lookX = Math.cos(time * 0.003) * 4;
+      const lookY = Math.sin(time * 0.003) * 2;
+      ctx.beginPath();
+      ctx.arc(x + width/2 + lookX, fy + height/2 + lookY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
     } else if (type === 'MIMIC') {
-      // Сундук
+      // Сундук (база)
+      ctx.fillStyle = '#4B2512';
       ctx.fillRect(x, y, width, height);
-      ctx.fillStyle = '#1A1621';
-      ctx.fillRect(x, y + height/3, width, 4); // Щель
-      ctx.fillStyle = '#FFD700';
-      ctx.fillRect(x + width/2 - 4, y + height/2, 8, 8); // Замок
+      
+      // Текстура дерева
+      ctx.fillStyle = '#2D1409';
+      ctx.fillRect(x, y + 5, width, 2);
+      ctx.fillRect(x, y + 15, width, 2);
+      ctx.fillRect(x, y + 25, width, 2);
+      
+      // Металлические заклепки
+      ctx.fillStyle = '#71717A';
+      ctx.fillRect(x, y, 4, height);
+      ctx.fillRect(x + width - 4, y, 4, height);
+      ctx.fillRect(x, y + height/2 - 2, width, 4);
+      
+      // Пасть (если близко)
+      const dist = x - PLAYER_X;
+      if (dist < 300) {
+        const open = Math.max(0, Math.sin(time * 0.01) * 8);
+        ctx.fillStyle = '#4C0519';
+        ctx.fillRect(x + 2, y + height/2 - open, width - 4, open * 2);
+        // Зубы
+        ctx.fillStyle = '#E4E4E7';
+        for(let i = 0; i < width; i += 8) {
+          ctx.fillRect(x + i, y + height/2 - open, 4, 4);
+          ctx.fillRect(x + i, y + height/2 + open - 4, 4, 4);
+        }
+      }
+      
+      // Замок
+      ctx.fillStyle = '#EAB308';
+      ctx.fillRect(x + width/2 - 3, y + height/2 - 4, 6, 8);
     } else {
+      ctx.fillStyle = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS]?.color || '#444';
       ctx.fillRect(x, y, width, height);
     }
+    
     ctx.restore();
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
-    const layers = [ASSET_MANIFEST.PARALLAX.BACK, ASSET_MANIFEST.PARALLAX.MID, ASSET_MANIFEST.PARALLAX.FRONT];
+    // Туман на фоне
+    const time = Date.now() * 0.001;
     
-    layers.forEach((layer, i) => {
-      ctx.fillStyle = layer.color;
-      const offset = gameRef.current.parallax[i] % 400;
-      
-      // Рисуем повторяющиеся элементы (колонны или кирпичи)
-      for (let x = -offset; x < VIRTUAL_WIDTH; x += 400) {
-        if (i === 0) { // Дальние колонны
-          ctx.fillRect(x + 100, 50, 40, 300);
-        } else if (i === 1) { // Средние кирпичи
-          ctx.fillRect(x + 200, 150, 80, 40);
-          ctx.fillRect(x + 50, 250, 80, 40);
-        }
-      }
-    });
+    // Слой 0: Дальние колонны
+    ctx.fillStyle = '#0D0B12';
+    let offset0 = gameRef.current.parallax[0] % 600;
+    for (let x = -offset0; x < VIRTUAL_WIDTH + 600; x += 600) {
+      ctx.fillRect(x + 200, 0, 80, VIRTUAL_HEIGHT);
+      ctx.fillStyle = '#120F1A';
+      ctx.fillRect(x + 230, 0, 20, VIRTUAL_HEIGHT);
+      ctx.fillStyle = '#0D0B12';
+    }
 
-    // Пол
-    ctx.fillStyle = '#120B1A';
+    // Слой 1: Средние арки
+    ctx.fillStyle = '#16121D';
+    let offset1 = gameRef.current.parallax[1] % 400;
+    for (let x = -offset1; x < VIRTUAL_WIDTH + 400; x += 400) {
+      ctx.fillRect(x + 50, 100, 100, 300);
+      ctx.beginPath();
+      ctx.arc(x + 100, 100, 50, 0, Math.PI, true);
+      ctx.fill();
+    }
+
+    // Пол: Каменные плиты
+    ctx.fillStyle = '#0A080D';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
-    ctx.strokeStyle = '#6226B3';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0, GROUND_Y, VIRTUAL_WIDTH, 2);
+    
+    let offset2 = gameRef.current.parallax[2] % 100;
+    ctx.strokeStyle = '#25202D';
+    ctx.lineWidth = 1;
+    for (let x = -offset2; x < VIRTUAL_WIDTH + 100; x += 100) {
+      ctx.beginPath();
+      ctx.moveTo(x, GROUND_Y);
+      ctx.lineTo(x, VIRTUAL_HEIGHT);
+      ctx.stroke();
+      // Трещины
+      if (x % 200 === 0) {
+        ctx.beginPath();
+        ctx.moveTo(x + 30, GROUND_Y + 20);
+        ctx.lineTo(x + 50, GROUND_Y + 40);
+        ctx.lineTo(x + 40, GROUND_Y + 60);
+        ctx.stroke();
+      }
+    }
+    
+    // Линия горизонта
+    const horizonGrad = ctx.createLinearGradient(0, GROUND_Y - 2, 0, GROUND_Y + 4);
+    horizonGrad.addColorStop(0, 'rgba(98, 38, 179, 0)');
+    horizonGrad.addColorStop(0.5, '#6226B3');
+    horizonGrad.addColorStop(1, 'rgba(98, 38, 179, 0)');
+    ctx.fillStyle = horizonGrad;
+    ctx.fillRect(0, GROUND_Y - 2, VIRTUAL_WIDTH, 6);
   };
 
   const draw = useCallback(() => {
@@ -153,8 +236,8 @@ const GameCanvas: React.FC = () => {
     
     // Фоновый градиент
     const grad = ctx.createLinearGradient(0, 0, 0, VIRTUAL_HEIGHT);
-    grad.addColorStop(0, '#050406');
-    grad.addColorStop(1, '#0A080D');
+    grad.addColorStop(0, '#020103');
+    grad.addColorStop(1, '#08060A');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
@@ -168,7 +251,7 @@ const GameCanvas: React.FC = () => {
         ctx.fillRect(p.x, p.y, 4, 4);
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= 0.02;
+        p.life -= 0.03;
         if (p.life <= 0) gameRef.current.particles.splice(i, 1);
       });
       ctx.globalAlpha = 1.0;
@@ -182,6 +265,16 @@ const GameCanvas: React.FC = () => {
       if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
         if (playerImgRef.current) {
           ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
+          // Магическая аура для Плута (двойной прыжок доступен)
+          if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.vy < 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#A855F7';
+            ctx.beginPath();
+            ctx.arc(p.x + p.width/2, p.y + p.height/2, 40, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
         } else {
           ctx.fillStyle = '#6226B3';
           ctx.fillRect(p.x + 16, p.y + 16, 40, 40);
@@ -189,16 +282,16 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // UI overlays
+    // Overlay
     if (gameState === 'START') {
-      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
-      ctx.font = '14px "Press Start 2P"';
+      ctx.font = '16px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА ПРИКЛЮЧЕНИЯ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
     }
-  }, [gameState, invulnerableUntil]);
+  }, [gameState, invulnerableUntil, selectedClass]);
 
   const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
     if (gameState === 'PLAYING') {
@@ -208,8 +301,8 @@ const GameCanvas: React.FC = () => {
       const currentSpeed = engineRef.current.speed;
 
       // Параллакс
-      gameRef.current.parallax[0] += currentSpeed * 0.1 * dtFactor;
-      gameRef.current.parallax[1] += currentSpeed * 0.4 * dtFactor;
+      gameRef.current.parallax[0] += currentSpeed * 0.15 * dtFactor;
+      gameRef.current.parallax[1] += currentSpeed * 0.5 * dtFactor;
       gameRef.current.parallax[2] += currentSpeed * 1.0 * dtFactor;
 
       const { player, monsters } = gameRef.current;
@@ -226,27 +319,27 @@ const GameCanvas: React.FC = () => {
 
       engineRef.current.distance += currentSpeed * dtFactor * 0.1;
 
-      // Спавн
-      if (timestamp - gameRef.current.collisionCooldown > 1500 && Math.random() < 0.02 * dtFactor) {
+      // Спавн с учетом окна выживаемости
+      if (timestamp - gameRef.current.collisionCooldown > (1500 / (currentSpeed/5)) && Math.random() < 0.03 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
         const config = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS];
         
         let yPos = GROUND_Y - config.height;
-        if (config.type === 'AIR_LOW') yPos = GROUND_Y - 100;
-        if (config.type === 'AIR_HIGH') yPos = GROUND_Y - 180;
+        if (config.type === 'AIR_LOW') yPos = GROUND_Y - 110;
+        if (config.type === 'AIR_HIGH') yPos = GROUND_Y - 200;
 
         monsters.push({
           id: Math.random().toString(),
           type,
           obstacleType: config.type as any,
-          x: VIRTUAL_WIDTH,
+          x: VIRTUAL_WIDTH + 100,
           y: yPos,
           width: config.width,
           height: config.height,
           speed: currentSpeed,
         });
-        gameRef.current.collisionCooldown = timestamp; // Используем как таймер спавна
+        gameRef.current.collisionCooldown = timestamp;
       }
 
       // Обновление монстров и коллизии
@@ -271,7 +364,7 @@ const GameCanvas: React.FC = () => {
           }
         }
 
-        if (m.x + m.width < -100) monsters.splice(i, 1);
+        if (m.x + m.width < -150) monsters.splice(i, 1);
       }
 
       if (hp <= 0) setGameState('GAME_OVER');
@@ -289,7 +382,7 @@ const GameCanvas: React.FC = () => {
     gameRef.current.particles = [];
     gameRef.current.player.y = GROUND_Y - ASSET_MANIFEST.PLAYER.height;
     gameRef.current.player.vy = 0;
-    gameRef.current.player.maxJumps = selectedClass?.name === 'ROGUE' ? 3 : 2;
+    gameRef.current.player.maxJumps = selectedClass?.maxJumps || 1;
     gameRef.current.player.jumpsRemaining = gameRef.current.player.maxJumps;
     resetDnd();
     setGameState('PLAYING');
@@ -302,12 +395,12 @@ const GameCanvas: React.FC = () => {
     } else if (gameState === 'PLAYING') {
       const { player } = gameRef.current;
       if (player.jumpsRemaining > 0) {
-        player.vy = JUMP_STRENGTH;
+        player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1.0);
         player.jumpsRemaining--;
         createJumpEffect(player.x + player.width / 2, player.y + player.height);
       }
     }
-  }, [gameState]);
+  }, [gameState, selectedClass]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -349,7 +442,7 @@ const GameCanvas: React.FC = () => {
                     {key === 'WIZARD' && <Wand2 className="text-secondary" />}
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest">{cls.label}</span>
-                  <span className="text-[7px] opacity-60 uppercase">{cls.description}</span>
+                  <p className="text-[7px] opacity-60 uppercase leading-relaxed h-12">{cls.description}</p>
                   <div className="mt-2 text-[7px] text-secondary">AC: {cls.armorClass} | HP: {cls.maxHp}</div>
                 </button>
               );
@@ -374,7 +467,7 @@ const GameCanvas: React.FC = () => {
 
       <div 
         className={cn(
-          "relative border-4 border-primary shadow-[0_0_40px_rgba(98,38,179,0.3)] overflow-hidden cursor-crosshair transition-transform",
+          "relative border-4 border-primary shadow-[0_0_50px_rgba(98,38,179,0.4)] overflow-hidden cursor-crosshair transition-transform",
           isShaking && "animate-shake"
         )}
         onClick={handleInput}
