@@ -39,12 +39,17 @@ const GameCanvas: React.FC = () => {
     frameCount: 0,
   });
 
-  // Загрузка спрайта игрока
+  // Загрузка спрайта игрока из папки public/
   useEffect(() => {
     const img = new Image();
     img.src = '/player.png';
-    img.onload = () => setPlayerImage(img);
-    img.onerror = () => console.warn('Файл player.png не найден в папке public/. Используется заглушка.');
+    img.onload = () => {
+      console.log('Спрайт player.png успешно загружен');
+      setPlayerImage(img);
+    };
+    img.onerror = () => {
+      console.warn('Файл player.png не найден по пути /public/player.png. Используется временная отрисовка.');
+    };
   }, []);
 
   useEffect(() => {
@@ -77,10 +82,6 @@ const GameCanvas: React.FC = () => {
         const isAlt = (Math.floor((x + p1) / brickW) + row) % 2 === 0;
         ctx.fillStyle = isAlt ? '#1a1621' : '#14111a';
         ctx.fillRect(x, row * brickH, brickW - 2, brickH - 2);
-        
-        ctx.fillStyle = 'rgba(255,255,255,0.03)';
-        ctx.fillRect(x, row * brickH, brickW - 2, 1);
-        ctx.fillRect(x, row * brickH, 1, brickH - 2);
       }
     }
 
@@ -89,8 +90,6 @@ const GameCanvas: React.FC = () => {
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
       drawPixelRect(ctx, x, 0, 48, GROUND_Y, '#2d2738');
-      drawPixelRect(ctx, x + 4, 0, 6, GROUND_Y, '#3a3345');
-      drawPixelRect(ctx, x + 38, 0, 10, GROUND_Y, '#1a1621');
       
       const torchY = 160;
       const bracketX = x + 30;
@@ -98,8 +97,6 @@ const GameCanvas: React.FC = () => {
       // Кронштейн факела
       drawPixelRect(ctx, bracketX - 6, torchY + 8, 12, 16, '#1a1621');
       drawPixelRect(ctx, bracketX, torchY + 4, 18, 6, '#1a1621');
-      drawPixelRect(ctx, bracketX + 14, torchY - 4, 14, 12, '#2d2738');
-      drawPixelRect(ctx, bracketX + 12, torchY - 2, 18, 4, '#1a1621');
       
       const flicker = Math.sin(frameCount * 0.15) * 4;
       const flameX = bracketX + 18;
@@ -109,7 +106,6 @@ const GameCanvas: React.FC = () => {
       ctx.shadowColor = 'rgba(255, 120, 0, 0.7)';
       drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500');
       drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00');
-      drawPixelRect(ctx, flameX + 2, flameY + 8, 4, 10, '#ffff00');
       ctx.shadowBlur = 0;
     }
 
@@ -124,12 +120,14 @@ const GameCanvas: React.FC = () => {
     const { x, y, width, height } = player;
 
     if (playerImage) {
-      // Отрисовка спрайта из файла player.png
+      // Отрисовка вашего спрайта с автоматическим масштабированием до 48x48
       ctx.drawImage(playerImage, Math.floor(x), Math.floor(y), width, height);
     } else {
-      // Заглушка, если файл не загружен
-      drawPixelRect(ctx, x, y, width, height, '#6226B3');
-      drawPixelRect(ctx, x + 10, y + 10, 10, 10, '#ffffff');
+      // Временная отрисовка, пока файл player.png не загружен
+      const walk = Math.sin(gameRef.current.frameCount * 0.2) * 3;
+      drawPixelRect(ctx, x + 8, y + walk, 32, 40, '#5c4033'); // Туника
+      drawPixelRect(ctx, x + 12, y + walk - 12, 24, 24, '#f0d0a0'); // Голова
+      drawPixelRect(ctx, x + 4, y + walk + 10, 40, 4, '#4b0082'); // Плащ (заглушка)
     }
 
     // Тень
@@ -141,49 +139,18 @@ const GameCanvas: React.FC = () => {
     ctx.fill();
   };
 
-  const drawBeholder = (ctx: CanvasRenderingContext2D, m: Monster) => {
-    const px = 2;
-    const time = gameRef.current.frameCount;
-    drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#5c242c');
-    drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#833440');
-    for (let i = 0; i < 4; i++) {
-      const sx = m.x + (i * 12) + 4;
-      const wave = Math.sin(time * 0.1 + i) * 6;
-      const sy = m.y - 12 + wave;
-      drawPixelRect(ctx, sx, sy, 6, 12, '#5c242c');
-      drawPixelRect(ctx, sx + 1, sy - 3, 4, 4, '#ff0000');
+  const drawMonster = (ctx: CanvasRenderingContext2D, m: Monster) => {
+    if (m.type === 'BEHOLDER') {
+      const px = 2;
+      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#833440');
+      drawPixelRect(ctx, m.x + px*4, m.y + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
+      drawPixelRect(ctx, m.x + m.width/2 - 4, m.y + m.height/2 - 4, 8, 8, '#1a1621');
+    } else if (m.type === 'MIMIC') {
+      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
+      drawPixelRect(ctx, m.x + 2, m.y + 2, m.width - 4, m.height - 4, '#5c3321');
+    } else {
+      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#4CAF50');
     }
-    drawPixelRect(ctx, m.x + px*4, m.y + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
-    const eyeY = Math.sin(time * 0.08) * 4;
-    const eyeX = Math.cos(time * 0.05) * 3;
-    drawPixelRect(ctx, m.x + m.width/2 - px*3 + eyeX, m.y + m.height/2 - px*3 + eyeY, px*6, px*6, '#1a1621');
-  };
-
-  const drawMimic = (ctx: CanvasRenderingContext2D, m: Monster) => {
-    const px = 2;
-    const open = Math.abs(Math.sin(gameRef.current.frameCount * 0.02)) * 10;
-    drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
-    drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#5c3321');
-    drawPixelRect(ctx, m.x + px, m.y + m.height/2 - px, m.width - px*2, open, '#000000');
-    if (open > 2) drawPixelRect(ctx, m.x + m.width/2 - px, m.y + m.height/2, px*3, open + 4, '#B33E3E');
-  };
-
-  const drawSkeleton = (ctx: CanvasRenderingContext2D, m: Monster) => {
-    const px = 2;
-    const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
-    drawPixelRect(ctx, m.x + px*6, m.y + walk, px*12, px*12, '#d0d0d0');
-    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*4, px*3, px*3, '#FF0000');
-    drawPixelRect(ctx, m.x + px*13, m.y + walk + px*4, px*3, px*3, '#FF0000');
-    drawPixelRect(ctx, m.x + px*8, m.y + walk + px*14, px*8, px*12, '#d0d0d0');
-  };
-
-  const drawSlime = (ctx: CanvasRenderingContext2D, m: Monster) => {
-    const px = 2;
-    const squash = Math.sin(gameRef.current.frameCount * 0.1) * 8;
-    ctx.globalAlpha = 0.6;
-    drawPixelRect(ctx, m.x, m.y + squash, m.width, m.height - squash, '#4CAF50');
-    ctx.globalAlpha = 1.0;
-    drawPixelRect(ctx, m.x + m.width/2 - px*2, m.y + m.height/2 + squash, px*5, px*5, '#2E7D32');
   };
 
   const submitScore = useCallback(async (finalScore: number) => {
@@ -220,28 +187,16 @@ const GameCanvas: React.FC = () => {
 
     const spawnRate = Math.max(40, 130 - (gameRef.current.score / 15));
     if (frameCount - lastSpawn > spawnRate + Math.random() * 60) {
-      const rand = Math.random();
-      let type: MonsterType = 'MIMIC';
-      if (gameRef.current.score > 600 && rand > 0.92) type = 'DRAGON';
-      else if (gameRef.current.score > 350 && rand > 0.78) type = 'SKELETON';
-      else if (gameRef.current.score > 200 && rand > 0.58) type = 'SLIME';
-      else if (rand > 0.3) type = 'BEHOLDER';
-
-      let mY = GROUND_Y - 48;
-      let mW = 48, mH = 48;
-
-      if (type === 'BEHOLDER') mY = GROUND_Y - 130;
-      if (type === 'DRAGON') { mY = GROUND_Y - 180; mW = 100; mH = 70; }
-      if (type === 'SLIME') { mY = GROUND_Y - 24; mH = 24; }
-
+      const type: MonsterType = Math.random() > 0.5 ? 'BEHOLDER' : 'MIMIC';
+      const mY = type === 'BEHOLDER' ? GROUND_Y - 130 : GROUND_Y - 48;
       monsters.push({
         id: Math.random().toString(36).substr(2, 9),
         type,
         x: VIRTUAL_WIDTH,
         y: mY,
-        width: mW,
-        height: mH,
-        speed: type === 'SLIME' ? currentSpeed * 0.75 : currentSpeed,
+        width: 48,
+        height: 48,
+        speed: currentSpeed,
         phase: Math.random() * Math.PI * 2,
         baseY: mY
       });
@@ -251,12 +206,11 @@ const GameCanvas: React.FC = () => {
     for (let i = monsters.length - 1; i >= 0; i--) {
       const m = monsters[i];
       if (m.type === 'BEHOLDER') {
-        const hoverRange = 40;
-        m.y = (m.baseY || 0) + Math.sin(frameCount * 0.04 + (m.phase || 0)) * hoverRange;
+        m.y = (m.baseY || 0) + Math.sin(frameCount * 0.04 + (m.phase || 0)) * 40;
       }
       m.x -= m.speed;
 
-      const pad = 14;
+      const pad = 12;
       if (
         player.x < m.x + m.width - pad &&
         player.x + player.width - pad > m.x &&
@@ -286,21 +240,9 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
     
-    gameRef.current.monsters.forEach(m => {
-      if (m.type === 'BEHOLDER') drawBeholder(ctx, m);
-      else if (m.type === 'MIMIC') drawMimic(ctx, m);
-      else if (m.type === 'SKELETON') drawSkeleton(ctx, m);
-      else if (m.type === 'DRAGON') drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#833440');
-      else if (m.type === 'SLIME') drawSlime(ctx, m);
-    });
+    gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
 
     drawHero(ctx, gameRef.current.player);
-
-    const vig = ctx.createRadialGradient(VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, 100, VIRTUAL_WIDTH/2, VIRTUAL_HEIGHT/2, VIRTUAL_WIDTH);
-    vig.addColorStop(0, 'transparent');
-    vig.addColorStop(1, 'rgba(0,0,0,0.7)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
     if (gameRef.current.state === 'START') {
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
@@ -320,7 +262,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillText('ПОГИБ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
       ctx.font = '12px "Press Start 2P"';
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('НАЖМИТЕ, ЧТОБЫ ПОПРОБОВАТЬ СНОВА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
+      ctx.fillText('НАЖМИТЕ, ЧТОБЫ ПОВТОРИТЬ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
     }
   }, [playerImage]);
 
@@ -381,11 +323,11 @@ const GameCanvas: React.FC = () => {
 
       <div className="grid grid-cols-2 w-full gap-4">
         <div className="bg-[#1a1621] p-5 border-b-4 border-primary shadow-lg">
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Текущая глубина</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Глубина</p>
           <p className="text-2xl text-white font-headline">{score}м</p>
         </div>
         <div className="bg-[#1a1621] p-5 border-b-4 border-secondary text-right shadow-lg">
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Лучший рекорд</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Рекорд</p>
           <p className="text-2xl text-secondary font-headline">{highScore}м</p>
         </div>
       </div>
