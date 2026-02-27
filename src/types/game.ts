@@ -10,7 +10,10 @@ export interface GameObject {
 }
 
 export type ObstacleType = 'GROUND' | 'AIR' | 'TALL';
-export type MonsterType = 'BEHOLDER' | 'MIMIC' | 'SKELETON';
+export type MonsterType = 
+  | 'SLIME' | 'GOBLIN' | 'SKELETON' | 'MIMIC' // GROUND
+  | 'BAT' | 'BEHOLDER'                      // AIR
+  | 'OGRE' | 'GHOST' | 'DRAGON';             // TALL
 
 export interface Monster extends GameObject {
   type: MonsterType;

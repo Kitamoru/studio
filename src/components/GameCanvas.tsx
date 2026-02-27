@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Player, Monster, MonsterType, GameStatus, EngineState, CharacterClassName } from '@/types/game';
+import { Player, Monster, MonsterType, GameStatus, EngineState, CharacterClassName, ObstacleType } from '@/types/game';
 import { useGameLoop } from '@/hooks/use-game-loop';
 import { calculateSpeed, checkCollision } from '@/lib/game-math';
 import { useDnd } from '@/context/dnd-context';
@@ -14,7 +14,20 @@ const GRAVITY = 0.65;
 const JUMP_STRENGTH = -14;
 const GROUND_Y = 340;
 const PLAYER_X = 120;
-const PLAYER_SIZE = 72; // Увеличено на 50%
+const PLAYER_SIZE = 72;
+
+// Конфигурация бестиария
+const BESTIARY: Record<MonsterType, { width: number; height: number; type: ObstacleType; color: string }> = {
+  SLIME: { width: 40, height: 30, type: 'GROUND', color: '#4ade80' },
+  GOBLIN: { width: 44, height: 44, type: 'GROUND', color: '#84cc16' },
+  SKELETON: { width: 40, height: 50, type: 'GROUND', color: '#e5e7eb' },
+  MIMIC: { width: 48, height: 48, type: 'GROUND', color: '#78350f' },
+  BAT: { width: 32, height: 32, type: 'AIR', color: '#4b5563' },
+  BEHOLDER: { width: 52, height: 52, type: 'AIR', color: '#9f1239' },
+  OGRE: { width: 64, height: 80, type: 'TALL', color: '#1e3a8a' },
+  GHOST: { width: 48, height: 60, type: 'TALL', color: '#cbd5e1' },
+  DRAGON: { width: 90, height: 70, type: 'TALL', color: '#b91c1c' },
+};
 
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,7 +67,6 @@ const GameCanvas: React.FC = () => {
     collisionCooldown: 0,
   });
 
-  // Надежная загрузка ассета
   useEffect(() => {
     const img = new Image();
     img.src = '/Knight2.webp';
@@ -64,9 +76,8 @@ const GameCanvas: React.FC = () => {
       setLoadError(false);
     };
     img.onerror = () => {
-      console.error("Ошибка загрузки Knight2.webp");
       setLoadError(true);
-      setIsImageLoaded(true); // Разрешаем играть с заглушкой
+      setIsImageLoaded(true);
     };
   }, []);
 
@@ -75,71 +86,40 @@ const GameCanvas: React.FC = () => {
     ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
   };
 
-  const drawBackground = (ctx: CanvasRenderingContext2D, offset: number) => {
-    ctx.fillStyle = '#0a080d';
-    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-
-    // Параллакс кирпичной стены
-    const p1 = offset * 0.4;
-    const brickW = 100;
-    const brickH = 50;
-    for (let row = 0; row < GROUND_Y / brickH; row++) {
-      const xOffset = (row % 2 === 0 ? 0 : brickW / 2) - (p1 % brickW);
-      for (let x = xOffset - brickW; x < VIRTUAL_WIDTH + brickW; x += brickW) {
-        ctx.fillStyle = (Math.floor((x + p1) / brickW) + row) % 2 === 0 ? '#14111a' : '#0f0d14';
-        ctx.fillRect(x, row * brickH, brickW - 4, brickH - 4);
-      }
-    }
-
-    // Пол
-    ctx.fillStyle = '#221e2b';
-    ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
-    
-    // Детализация пола (плитка)
-    const floorOffset = offset % 80;
-    for (let x = -floorOffset; x < VIRTUAL_WIDTH; x += 80) {
-      drawPixelRect(ctx, x, GROUND_Y, 2, VIRTUAL_HEIGHT - GROUND_Y, '#2a2635');
-    }
-  };
-
-  const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
-    const isInvul = Date.now() < invulnerableUntil;
-    if (isInvul && Math.floor(Date.now() / 100) % 2 === 0) return;
-
-    if (playerImgRef.current && !loadError) {
-      ctx.drawImage(playerImgRef.current, Math.floor(player.x), Math.floor(player.y), player.width, player.height);
-    } else {
-      // Программный Принц (заглушка)
-      const x = Math.floor(player.x);
-      const y = Math.floor(player.y);
-      drawPixelRect(ctx, x + 12, y + 12, 48, 48, '#6226B3'); // Тело
-      drawPixelRect(ctx, x + 20, y + 4, 32, 24, '#c0c0c0'); // Шлем
-      drawPixelRect(ctx, x + 8, y + 20, 12, 40, '#4a1b8c'); // Плащ
-    }
-  };
-
   const drawMonster = (ctx: CanvasRenderingContext2D, m: Monster) => {
-    const x = Math.floor(m.x);
-    const y = Math.floor(m.y);
+    const { x, y, width, height, type } = m;
+    const config = BESTIARY[type];
     
-    if (m.type === 'BEHOLDER') {
-      const float = Math.sin(Date.now() * 0.005) * 10;
-      const flyY = y + float;
-      // Тело бехолдера
-      drawPixelRect(ctx, x, flyY, 48, 48, '#833440');
-      drawPixelRect(ctx, x + 8, flyY + 8, 32, 32, '#a54452');
-      // Глаз
-      drawPixelRect(ctx, x + 16, flyY + 12, 16, 16, 'white');
-      drawPixelRect(ctx, x + 22, flyY + 18, 4, 4, 'red');
-    } else if (m.type === 'MIMIC') {
-      // Сундук-мимик
-      drawPixelRect(ctx, x, y, 48, 48, '#3a2115'); // Дерево
-      drawPixelRect(ctx, x, y + 8, 48, 4, '#1a1a1a'); // Ребро
-      drawPixelRect(ctx, x, y + 32, 48, 4, '#1a1a1a'); // Ребро
-      drawPixelRect(ctx, x + 20, y + 16, 8, 8, '#ffd700'); // Замок
-    } else {
-      drawPixelRect(ctx, x, y, 48, 48, '#444');
+    ctx.save();
+    const drawX = Math.floor(x);
+    const drawY = Math.floor(y);
+
+    switch(type) {
+      case 'SLIME':
+        drawPixelRect(ctx, drawX, drawY + 10, width, height - 10, config.color);
+        drawPixelRect(ctx, drawX + 4, drawY + 6, width - 8, 4, config.color);
+        break;
+      case 'BEHOLDER':
+        const float = Math.sin(Date.now() * 0.005) * 10;
+        const fy = drawY + float;
+        drawPixelRect(ctx, drawX, fy, width, height, config.color);
+        drawPixelRect(ctx, drawX + 16, fy + 12, 20, 20, 'white');
+        drawPixelRect(ctx, drawX + 22, fy + 18, 8, 8, 'red');
+        break;
+      case 'MIMIC':
+        drawPixelRect(ctx, drawX, drawY, width, height, config.color);
+        drawPixelRect(ctx, drawX, drawY + 10, width, 4, '#1a1a1a');
+        drawPixelRect(ctx, drawX + 20, drawY + 16, 8, 8, '#ffd700');
+        break;
+      case 'DRAGON':
+        drawPixelRect(ctx, drawX, drawY, width, height, config.color);
+        drawPixelRect(ctx, drawX + width - 20, drawY - 20, 30, 40, config.color); // Head
+        drawPixelRect(ctx, drawX + 10, drawY + 10, width - 20, 20, '#fbbf24'); // Wings
+        break;
+      default:
+        drawPixelRect(ctx, drawX, drawY, width, height, config.color);
     }
+    ctx.restore();
   };
 
   const draw = useCallback(() => {
@@ -148,11 +128,26 @@ const GameCanvas: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    drawBackground(ctx, gameRef.current.bgOffset);
+    // Background
+    ctx.fillStyle = '#0a080d';
+    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+    // Floor
+    ctx.fillStyle = '#221e2b';
+    ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
     
     if (gameState === 'PLAYING' || gameState === 'GAME_OVER') {
       gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
-      drawHero(ctx, gameRef.current.player);
+      
+      const p = gameRef.current.player;
+      const isInvul = Date.now() < invulnerableUntil;
+      if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
+        if (playerImgRef.current && !loadError) {
+          ctx.drawImage(playerImgRef.current, Math.floor(p.x), Math.floor(p.y), p.width, p.height);
+        } else {
+          drawPixelRect(ctx, p.x + 12, p.y + 12, 48, 48, '#6226B3');
+        }
+      }
     }
 
     if (gameState === 'START') {
@@ -161,7 +156,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#6226B3';
       ctx.font = '16px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА ПРИКЛЮЧЕНИЯ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
     }
 
     if (gameState === 'GAME_OVER') {
@@ -173,10 +168,10 @@ const GameCanvas: React.FC = () => {
       ctx.fillText('ВЫ ПОГИБЛИ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
       ctx.fillStyle = 'white';
       ctx.font = '12px "Press Start 2P"';
-      ctx.fillText(`СЧЕТ: ${score}м | РЕКОРД: ${highScore}м`, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
+      ctx.fillText(`СЧЕТ: ${score}м`, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
       ctx.fillText('КЛИК ДЛЯ ВОЗРОЖДЕНИЯ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 70);
     }
-  }, [gameState, score, highScore, invulnerableUntil, loadError]);
+  }, [gameState, score, invulnerableUntil, loadError]);
 
   const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
     if (gameState === 'PLAYING') {
@@ -200,17 +195,28 @@ const GameCanvas: React.FC = () => {
       gameRef.current.bgOffset += currentSpeed * dtFactor;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1;
 
-      const spawnDelay = 2000 / (currentSpeed / 5);
-      if (timestamp - gameRef.current.lastSpawnTime > spawnDelay) {
-        const type: MonsterType = Math.random() > 0.6 ? 'BEHOLDER' : 'MIMIC';
+      // Умный спавн с окном выживаемости
+      // Минимальное расстояние = скорость * время на прыжок и приземление (~1.2сек)
+      const minDistance = currentSpeed * 60; 
+      const lastMonster = monsters[monsters.length - 1];
+      const distanceToLast = lastMonster ? (VIRTUAL_WIDTH - lastMonster.x) : Infinity;
+
+      if (distanceToLast > minDistance && Math.random() < 0.02 * dtFactor) {
+        const types = Object.keys(BESTIARY) as MonsterType[];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const config = BESTIARY[type];
+
+        let yPos = GROUND_Y - config.height;
+        if (config.type === 'AIR') yPos = GROUND_Y - 140 - Math.random() * 60;
+
         monsters.push({
           id: Math.random().toString(36).substr(2, 9),
           type,
-          obstacleType: type === 'BEHOLDER' ? 'AIR' : 'GROUND',
+          obstacleType: config.type,
           x: VIRTUAL_WIDTH,
-          y: type === 'BEHOLDER' ? GROUND_Y - 160 : GROUND_Y - 48,
-          width: 48,
-          height: 48,
+          y: yPos,
+          width: config.width,
+          height: config.height,
           speed: currentSpeed,
         });
         gameRef.current.lastSpawnTime = timestamp;
@@ -220,7 +226,7 @@ const GameCanvas: React.FC = () => {
         const m = monsters[i];
         m.x -= currentSpeed * dtFactor;
 
-        if (checkCollision(player, m, 18) && timestamp > gameRef.current.collisionCooldown && Date.now() > invulnerableUntil) {
+        if (checkCollision(player, m, 15) && timestamp > gameRef.current.collisionCooldown && Date.now() > invulnerableUntil) {
           gameRef.current.collisionCooldown = timestamp + 1000;
           
           if (selectedClass) {
@@ -230,8 +236,7 @@ const GameCanvas: React.FC = () => {
               setInvulnerableUntil(Date.now() + 1000);
             } else {
               addLog(check.message, check.type === 'CRIT_FAIL' ? 'critical' : 'fail');
-              const damage = check.type === 'CRIT_FAIL' ? 2 : 1;
-              takeDamage(damage);
+              takeDamage(check.type === 'CRIT_FAIL' ? 2 : 1);
               setInvulnerableUntil(Date.now() + 1500);
             }
           }
@@ -242,9 +247,7 @@ const GameCanvas: React.FC = () => {
 
       if (hp <= 0) {
         setGameState('GAME_OVER');
-        if (Math.floor(engineRef.current.distance) > highScore) {
-          setHighScore(Math.floor(engineRef.current.distance));
-        }
+        if (Math.floor(engineRef.current.distance) > highScore) setHighScore(Math.floor(engineRef.current.distance));
       }
       setScore(Math.floor(engineRef.current.distance));
     }
@@ -283,35 +286,13 @@ const GameCanvas: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center bg-[#0a080d] w-full max-w-[800px] aspect-[2/1] border-4 border-primary">
         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-        <p className="text-xs uppercase text-secondary">Загрузка ресурсов...</p>
+        <p className="text-xs uppercase text-secondary">ЗАГРУЗКА БЕСТИАРИЯ...</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-4xl px-4">
-      {loadError && (
-        <div className="bg-red-900/50 text-[8px] p-2 text-center w-full uppercase">
-          Внимание: Knight2.webp не найден в /public. Используется программный спрайт.
-        </div>
-      )}
-
-      {/* HUD: HP и Класс */}
-      {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
-        <div className="flex justify-between w-full bg-[#1a1621] p-3 border-b-4 border-primary shadow-lg">
-          <div className="flex items-center gap-2">
-            {Array.from({ length: maxHp }).map((_, i) => (
-              <Heart key={i} size={20} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#444'} />
-            ))}
-          </div>
-          <div className="flex items-center gap-4 text-[10px] uppercase">
-            <span className="text-secondary">{selectedClass?.label}</span>
-            <span className="text-primary">{score}м</span>
-          </div>
-        </div>
-      )}
-
-      {/* Выбор класса */}
       {gameState === 'CLASS_SELECTION' && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
           <h2 className="text-xl text-primary mb-8 uppercase">ВЫБЕРИТЕ КЛАСС</h2>
@@ -328,11 +309,25 @@ const GameCanvas: React.FC = () => {
                   {key === 'ROGUE' && <Zap className="text-yellow-500" />}
                   {key === 'WIZARD' && <Wand2 className="text-blue-400" />}
                   <span className="text-sm font-bold">{cls.label}</span>
-                  <span className="text-[8px] opacity-70 leading-relaxed">{cls.description}</span>
+                  <span className="text-[8px] opacity-70">{cls.description}</span>
                   <div className="mt-2 text-[8px] text-secondary">AC: {cls.armorClass} | HP: {cls.maxHp}</div>
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
+        <div className="flex justify-between w-full bg-[#1a1621] p-3 border-b-4 border-primary">
+          <div className="flex items-center gap-2">
+            {Array.from({ length: maxHp }).map((_, i) => (
+              <Heart key={i} size={20} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#444'} />
+            ))}
+          </div>
+          <div className="flex items-center gap-4 text-[10px] uppercase">
+            <span className="text-secondary">{selectedClass?.label}</span>
+            <span className="text-primary">{score}м</span>
           </div>
         </div>
       )}
@@ -344,7 +339,6 @@ const GameCanvas: React.FC = () => {
         <canvas ref={canvasRef} width={VIRTUAL_WIDTH} height={VIRTUAL_HEIGHT} className="image-pixelated w-full h-auto max-w-[800px]" />
       </div>
 
-      {/* Боевой Лог */}
       {gameState === 'PLAYING' && (
         <div className="w-full bg-[#0a080d] p-4 border-l-4 border-primary h-32 overflow-hidden flex flex-col-reverse gap-1">
           {combatLog.map((log) => (
@@ -358,16 +352,6 @@ const GameCanvas: React.FC = () => {
           ))}
         </div>
       )}
-
-      <div className="grid grid-cols-2 gap-4 w-full">
-        <div className="bg-[#1a1621] p-4 border-b-4 border-secondary">
-          <p className="text-[8px] text-secondary mb-1 uppercase">РЕКОРД</p>
-          <p className="text-lg text-secondary">{highScore}м</p>
-        </div>
-        <div className="bg-[#1a1621] p-4 border-b-4 border-primary flex items-center justify-center">
-           <p className="text-[8px] opacity-50 uppercase text-center">ПРОБЕЛ ИЛИ КЛИК ДЛЯ ПРЫЖКА</p>
-        </div>
-      </div>
     </div>
   );
 };
