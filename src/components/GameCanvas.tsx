@@ -75,8 +75,10 @@ const GameCanvas: React.FC = () => {
   // Telegram Web App Initialization
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      tg.headerColor = '#0D0B12'; // Совпадаем с цветом UI панели
     }
   }, []);
 
@@ -101,15 +103,17 @@ const GameCanvas: React.FC = () => {
     img.onerror = () => setIsImageLoaded(true);
   }, []);
 
-  const createJumpEffect = (x: number, y: number, color = '#6226B3') => {
-    for (let i = 0; i < 12; i++) {
+  const createJumpEffect = (x: number, y: number, color = '#6226B3', isSecond = false) => {
+    const count = isSecond ? 15 : 10;
+    const pColor = isSecond ? '#A855F7' : color;
+    for (let i = 0; i < count; i++) {
       gameRef.current.particles.push({
         x,
         y,
-        vx: (Math.random() - 0.5) * 6,
-        vy: (Math.random() - 0.5) * 4,
+        vx: (Math.random() - 0.5) * (isSecond ? 10 : 6),
+        vy: (Math.random() - 0.5) * (isSecond ? 6 : 4),
         life: 1.0,
-        color
+        color: pColor
       });
     }
   };
@@ -158,17 +162,9 @@ const GameCanvas: React.FC = () => {
       ctx.fillRect(x, y, 4, height);
       ctx.fillRect(x + width - 4, y, 4, height);
       ctx.fillRect(x, y + height/2 - 2, width, 4);
-      const dist = x - PLAYER_X;
-      if (dist < 300) {
-        const open = Math.max(0, Math.sin(time * 0.01) * 8);
-        ctx.fillStyle = '#4C0519';
-        ctx.fillRect(x + 2, y + height/2 - open, width - 4, open * 2);
-        ctx.fillStyle = '#E4E4E7';
-        for(let i = 0; i < width; i += 8) {
-          ctx.fillRect(x + i, y + height/2 - open, 4, 4);
-          ctx.fillRect(x + i, y + height/2 + open - 4, 4, 4);
-        }
-      }
+      const open = Math.max(0, Math.sin(time * 0.01) * 8);
+      ctx.fillStyle = '#4C0519';
+      ctx.fillRect(x + 2, y + height/2 - open, width - 4, open * 2);
       ctx.fillStyle = '#EAB308';
       ctx.fillRect(x + width/2 - 3, y + height/2 - 4, 6, 8);
     } else if (type === 'SLIME') {
@@ -179,7 +175,6 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
       ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.fillRect(x + 10, y + 8, 4, 4);
-      ctx.fillRect(x + 20, y + 12, 2, 2);
     } else if (type === 'BAT') {
       const flap = Math.sin(time * 0.02) * 10;
       ctx.fillStyle = '#333';
@@ -319,7 +314,7 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx);
 
-    if (gameState === 'PLAYING' || gameState === 'GAME_OVER') {
+    if (gameState === 'PLAYING' || gameState === 'GAME_OVER' || gameState === 'START') {
       gameRef.current.particles.forEach((p, i) => {
         ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
@@ -338,6 +333,7 @@ const GameCanvas: React.FC = () => {
       if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
         if (playerImgRef.current) {
           ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
+          // Аура готовности двойного прыжка
           if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.y < GROUND_Y - p.height - 20) {
             ctx.save();
             ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.01) * 0.1;
@@ -462,12 +458,13 @@ const GameCanvas: React.FC = () => {
       const { player } = gameRef.current;
       if (player.jumpsRemaining > 0) {
         player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1.0);
+        const isSecond = player.jumpsRemaining < player.maxJumps;
         player.jumpsRemaining--;
-        const isDoubleJump = selectedClass?.name === 'ROGUE' && player.jumpsRemaining === 0;
         createJumpEffect(
           player.x + player.width / 2, 
           player.y + player.height, 
-          isDoubleJump ? '#A855F7' : '#6226B3'
+          isSecond ? '#A855F7' : '#6226B3',
+          isSecond
         );
       }
     }
@@ -486,7 +483,7 @@ const GameCanvas: React.FC = () => {
 
   if (!isImageLoaded) {
     return (
-      <div className="flex flex-col items-center justify-center bg-[#0A080D] w-full h-screen">
+      <div className="flex flex-col items-center justify-center bg-[#0A080D] w-full h-full">
         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
         <p className="text-[10px] uppercase text-secondary">ЗАГРУЗКА...</p>
       </div>
@@ -494,9 +491,9 @@ const GameCanvas: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center select-none overflow-hidden touch-none">
+    <div className="w-full h-full flex flex-col select-none overflow-hidden touch-none relative">
       {gameState === 'CLASS_SELECTION' && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+        <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
           <h2 className="text-xl text-primary mb-8 uppercase glow-text">ВЫБЕРИТЕ КЛАСС</h2>
           <div className="grid grid-cols-1 gap-4 w-full max-w-xs">
             {(Object.keys(CHARACTER_CLASSES) as CharacterClassName[]).map((key) => {
@@ -523,7 +520,7 @@ const GameCanvas: React.FC = () => {
 
       {/* Верхняя компактная панель UI */}
       {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
-        <div className="w-full flex justify-between items-center bg-[#0D0B12]/80 p-3 px-6 border-b-2 border-primary/30 backdrop-blur-md">
+        <div className="w-full flex justify-between items-center bg-[#0D0B12]/80 p-3 px-6 border-b-2 border-primary/30 backdrop-blur-md z-10 shrink-0">
           <div className="flex gap-1.5">
             {Array.from({ length: maxHp }).map((_, i) => (
               <Heart key={i} size={14} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#333'} className={i < hp ? 'animate-pulse' : ''} />
@@ -539,7 +536,7 @@ const GameCanvas: React.FC = () => {
       {/* Основной холст */}
       <div 
         className={cn(
-          "relative w-full aspect-[2/1] overflow-hidden cursor-pointer",
+          "relative w-full aspect-[2/1] overflow-hidden cursor-pointer shrink-0",
           isShaking && "animate-shake"
         )}
         onClick={handleInput}
