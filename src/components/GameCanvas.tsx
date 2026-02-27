@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -72,6 +71,14 @@ const GameCanvas: React.FC = () => {
     ambientParticles: [] as AmbientParticle[],
     collisionCooldown: 0,
   });
+
+  // Telegram Web App Initialization
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+  }, []);
 
   useEffect(() => {
     // Инициализация эмбер-частиц
@@ -331,7 +338,6 @@ const GameCanvas: React.FC = () => {
       if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
         if (playerImgRef.current) {
           ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
-          // Спецэффект Плута при наличии доступного прыжка в воздухе
           if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.y < GROUND_Y - p.height - 20) {
             ctx.save();
             ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.01) * 0.1;
@@ -457,7 +463,6 @@ const GameCanvas: React.FC = () => {
       if (player.jumpsRemaining > 0) {
         player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1.0);
         player.jumpsRemaining--;
-        // Специальный эффект для второго прыжка Плута
         const isDoubleJump = selectedClass?.name === 'ROGUE' && player.jumpsRemaining === 0;
         createJumpEffect(
           player.x + player.width / 2, 
@@ -481,35 +486,34 @@ const GameCanvas: React.FC = () => {
 
   if (!isImageLoaded) {
     return (
-      <div className="flex flex-col items-center justify-center bg-[#0A080D] w-full max-w-[800px] aspect-[2/1] border-4 border-primary">
+      <div className="flex flex-col items-center justify-center bg-[#0A080D] w-full h-screen">
         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-        <p className="text-[10px] uppercase text-secondary">ЗАГРУЗКА РЕСУРСОВ...</p>
+        <p className="text-[10px] uppercase text-secondary">ЗАГРУЗКА...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full max-w-4xl px-4">
+    <div className="w-full h-full flex flex-col items-center select-none overflow-hidden touch-none">
       {gameState === 'CLASS_SELECTION' && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
           <h2 className="text-xl text-primary mb-8 uppercase glow-text">ВЫБЕРИТЕ КЛАСС</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl">
+          <div className="grid grid-cols-1 gap-4 w-full max-w-xs">
             {(Object.keys(CHARACTER_CLASSES) as CharacterClassName[]).map((key) => {
               const cls = CHARACTER_CLASSES[key];
               return (
                 <button
                   key={key}
                   onClick={() => { selectClass(key); startNewGame(cls); }}
-                  className="bg-[#1A1621] border-2 border-primary p-4 hover:bg-primary/20 hover:border-accent transition-all flex flex-col items-center gap-3 group"
+                  className="bg-[#1A1621] border-2 border-primary p-4 active:scale-95 transition-all flex flex-col items-center gap-2"
                 >
-                  <div className="group-hover:scale-110 transition-transform">
-                    {key === 'FIGHTER' && <Shield className="text-primary" />}
-                    {key === 'ROGUE' && <Zap className="text-accent" />}
-                    {key === 'WIZARD' && <Wand2 className="text-secondary" />}
+                  <div className="flex items-center gap-3">
+                    {key === 'FIGHTER' && <Shield className="text-primary w-5 h-5" />}
+                    {key === 'ROGUE' && <Zap className="text-accent w-5 h-5" />}
+                    {key === 'WIZARD' && <Wand2 className="text-secondary w-5 h-5" />}
+                    <span className="text-[12px] font-bold uppercase">{cls.label}</span>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest">{cls.label}</span>
-                  <p className="text-[7px] opacity-60 uppercase leading-relaxed h-12">{cls.description}</p>
-                  <div className="mt-2 text-[7px] text-secondary">AC: {cls.armorClass} | HP: {cls.maxHp}</div>
+                  <div className="text-[8px] text-secondary opacity-80">AC: {cls.armorClass} | HP: {cls.maxHp}</div>
                 </button>
               );
             })}
@@ -517,23 +521,25 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
+      {/* Верхняя компактная панель UI */}
       {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
-        <div className="flex justify-between w-full bg-[#1A1621] p-3 border-4 border-primary shadow-lg">
-          <div className="flex items-center gap-2">
+        <div className="w-full flex justify-between items-center bg-[#0D0B12]/80 p-3 px-6 border-b-2 border-primary/30 backdrop-blur-md">
+          <div className="flex gap-1.5">
             {Array.from({ length: maxHp }).map((_, i) => (
-              <Heart key={i} size={16} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#444'} className={i < hp ? 'animate-pulse' : ''} />
+              <Heart key={i} size={14} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#333'} className={i < hp ? 'animate-pulse' : ''} />
             ))}
           </div>
-          <div className="flex items-center gap-4 text-[8px] uppercase tracking-tighter">
-            <span className="text-secondary opacity-70">{selectedClass?.label}</span>
-            <span className="text-primary font-bold">{score}м</span>
+          <div className="flex flex-col items-end">
+             <span className="text-[10px] text-primary font-bold">{score}м</span>
+             <span className="text-[7px] text-secondary opacity-60 uppercase">{selectedClass?.label}</span>
           </div>
         </div>
       )}
 
+      {/* Основной холст */}
       <div 
         className={cn(
-          "relative border-4 border-primary shadow-[0_0_50px_rgba(98,38,179,0.4)] overflow-hidden cursor-crosshair transition-transform",
+          "relative w-full aspect-[2/1] overflow-hidden cursor-pointer",
           isShaking && "animate-shake"
         )}
         onClick={handleInput}
@@ -542,21 +548,23 @@ const GameCanvas: React.FC = () => {
           ref={canvasRef} 
           width={VIRTUAL_WIDTH} 
           height={VIRTUAL_HEIGHT} 
-          className="image-pixelated w-full h-auto max-w-[800px]" 
+          className="image-pixelated w-full h-full object-contain bg-black" 
         />
+        
         {gameState === 'GAME_OVER' && (
           <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center p-4 animate-in zoom-in">
-            <h2 className="text-2xl text-red-500 mb-4 uppercase glow-text">ПОРАЖЕНИЕ</h2>
-            <p className="text-[10px] text-white mb-8 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
-            <button onClick={handleInput} className="bg-primary px-6 py-3 text-[10px] uppercase hover:bg-accent transition-colors">
-              ВОЗРОДИТЬСЯ
+            <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
+            <p className="text-[10px] text-white mb-6 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
+            <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase active:scale-90 transition-transform shadow-[0_4px_0_#4D1091]">
+              ПОПРОБОВАТЬ СНОВА
             </button>
           </div>
         )}
       </div>
 
+      {/* Компактный лог боя */}
       {gameState === 'PLAYING' && (
-        <div className="w-full bg-[#050406] p-4 border-l-4 border-primary h-28 overflow-hidden flex flex-col-reverse gap-2 shadow-inner">
+        <div className="w-full flex-1 bg-[#050406] p-3 overflow-hidden flex flex-col-reverse gap-1.5 border-t-2 border-primary/20">
           {combatLog.map((log) => (
             <div key={log.id} className={cn(
               "text-[7px] uppercase flex items-center gap-2 animate-in slide-in-from-left-2",
