@@ -1,10 +1,11 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { DndProvider } from '@/context/dnd-context';
 
 export const metadata: Metadata = {
-  title: 'PixelDungeon Dash',
-  description: 'Высокодетализированный бесконечный раннер в подземелье',
+  title: 'PixelDungeon Dash: D&D Edition',
+  description: 'Высокодетализированный бесконечный раннер с элементами D&D',
 };
 
 export default function RootLayout({
@@ -22,7 +23,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-[#0f0d12] text-white">
         <FirebaseClientProvider>
-          {children}
+          <DndProvider>
+            {children}
+          </DndProvider>
         </FirebaseClientProvider>
       </body>
     </html>

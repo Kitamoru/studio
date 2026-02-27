@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Player, Monster, MonsterType, ObstacleType, GameStatus, EngineState } from '@/types/game';
+import { Player, Monster, MonsterType, GameStatus, EngineState, CharacterClassName } from '@/types/game';
 import { useGameLoop } from '@/hooks/use-game-loop';
 import { calculateSpeed, checkCollision } from '@/lib/game-math';
+import { useDnd } from '@/context/dnd-context';
+import { performACCheck, CHARACTER_CLASSES } from '@/lib/dnd-logic';
+import { Heart, Shield, Zap, Wand2, Loader2 } from 'lucide-react';
 
 const VIRTUAL_WIDTH = 800;
 const VIRTUAL_HEIGHT = 400;
@@ -11,17 +14,19 @@ const GRAVITY = 0.65;
 const JUMP_STRENGTH = -14;
 const GROUND_Y = 340;
 const PLAYER_X = 120;
-const PLAYER_SIZE = 72; // Увеличено на 50% (48 * 1.5)
+const PLAYER_SIZE = 72; // Увеличено на 50%
 
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerImgRef = useRef<HTMLImageElement | null>(null);
+  const { hp, maxHp, selectedClass, combatLog, selectClass, takeDamage, addLog, resetDnd } = useDnd();
   
   const [gameState, setGameState] = useState<GameStatus>('START');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [invulnerableUntil, setInvulnerableUntil] = useState(0);
 
   const engineRef = useRef<EngineState>({
     speed: 5.0,
@@ -40,25 +45,28 @@ const GameCanvas: React.FC = () => {
       vy: 0, 
       state: 'RUNNING', 
       jumpsRemaining: 2, 
+      maxJumps: 2,
       frame: 0 
     } as Player,
     monsters: [] as Monster[],
     bgOffset: 0,
     lastSpawnTime: 0,
+    collisionCooldown: 0,
   });
 
-  // Загрузка ассетов
+  // Надежная загрузка ассета
   useEffect(() => {
     const img = new Image();
     img.src = '/Knight2.webp';
     img.onload = () => {
       playerImgRef.current = img;
       setIsImageLoaded(true);
+      setLoadError(false);
     };
     img.onerror = () => {
-      console.warn("Файл Knight2.webp не найден. Используем программную отрисовку.");
+      console.error("Ошибка загрузки Knight2.webp");
       setLoadError(true);
-      setIsImageLoaded(true);
+      setIsImageLoaded(true); // Разрешаем играть с заглушкой
     };
   }, []);
 
@@ -68,11 +76,10 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D, offset: number) => {
-    // Глубокий фон
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Параллакс стен (кирпичи)
+    // Параллакс кирпичной стены
     const p1 = offset * 0.4;
     const brickW = 100;
     const brickH = 50;
@@ -84,53 +91,54 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Пол подземелья
+    // Пол
     ctx.fillStyle = '#221e2b';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
     
-    // Текстура пола
-    ctx.fillStyle = '#2d2738';
-    for (let x = -(offset % 40); x < VIRTUAL_WIDTH; x += 40) {
-      ctx.fillRect(x, GROUND_Y, 2, VIRTUAL_HEIGHT - GROUND_Y);
+    // Детализация пола (плитка)
+    const floorOffset = offset % 80;
+    for (let x = -floorOffset; x < VIRTUAL_WIDTH; x += 80) {
+      drawPixelRect(ctx, x, GROUND_Y, 2, VIRTUAL_HEIGHT - GROUND_Y, '#2a2635');
     }
   };
 
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
+    const isInvul = Date.now() < invulnerableUntil;
+    if (isInvul && Math.floor(Date.now() / 100) % 2 === 0) return;
+
     if (playerImgRef.current && !loadError) {
       ctx.drawImage(playerImgRef.current, Math.floor(player.x), Math.floor(player.y), player.width, player.height);
     } else {
       // Программный Принц (заглушка)
-      const { x, y, width, height } = player;
-      const bounce = player.state === 'RUNNING' ? Math.sin(Date.now() * 0.01) * 3 : 0;
-      
-      // Плащ
-      ctx.fillStyle = '#6226B3';
-      ctx.fillRect(x + 5, y + 35 + bounce, 45, 30);
-      // Туника
-      drawPixelRect(ctx, x + 20, y + 25 + bounce, 35, 40, '#4a2c1d');
-      // Рукава
-      drawPixelRect(ctx, x + 15, y + 30 + bounce, 10, 15, '#d35400');
-      drawPixelRect(ctx, x + 50, y + 30 + bounce, 10, 15, '#d35400');
-      // Голова
-      drawPixelRect(ctx, x + 28, y + 10 + bounce, 24, 24, '#f1c40f');
+      const x = Math.floor(player.x);
+      const y = Math.floor(player.y);
+      drawPixelRect(ctx, x + 12, y + 12, 48, 48, '#6226B3'); // Тело
+      drawPixelRect(ctx, x + 20, y + 4, 32, 24, '#c0c0c0'); // Шлем
+      drawPixelRect(ctx, x + 8, y + 20, 12, 40, '#4a1b8c'); // Плащ
     }
   };
 
   const drawMonster = (ctx: CanvasRenderingContext2D, m: Monster) => {
+    const x = Math.floor(m.x);
+    const y = Math.floor(m.y);
+    
     if (m.type === 'BEHOLDER') {
       const float = Math.sin(Date.now() * 0.005) * 10;
-      const mY = m.y + float;
-      drawPixelRect(ctx, m.x, mY, m.width, m.height, '#833440');
-      drawPixelRect(ctx, m.x + 10, mY + 10, m.width - 20, m.height - 20, '#ffffff');
-      drawPixelRect(ctx, m.x + 18, mY + 18, 12, 12, '#000000');
+      const flyY = y + float;
+      // Тело бехолдера
+      drawPixelRect(ctx, x, flyY, 48, 48, '#833440');
+      drawPixelRect(ctx, x + 8, flyY + 8, 32, 32, '#a54452');
+      // Глаз
+      drawPixelRect(ctx, x + 16, flyY + 12, 16, 16, 'white');
+      drawPixelRect(ctx, x + 22, flyY + 18, 4, 4, 'red');
     } else if (m.type === 'MIMIC') {
-      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
-      drawPixelRect(ctx, m.x, m.y, m.width, 4, '#1a110a');
-      drawPixelRect(ctx, m.x + m.width/2 - 4, m.y + m.height/2 - 4, 8, 8, '#d4af37');
+      // Сундук-мимик
+      drawPixelRect(ctx, x, y, 48, 48, '#3a2115'); // Дерево
+      drawPixelRect(ctx, x, y + 8, 48, 4, '#1a1a1a'); // Ребро
+      drawPixelRect(ctx, x, y + 32, 48, 4, '#1a1a1a'); // Ребро
+      drawPixelRect(ctx, x + 20, y + 16, 8, 8, '#ffd700'); // Замок
     } else {
-      drawPixelRect(ctx, m.x + 5, m.y, m.width - 10, m.height, '#e0e0e0');
-      drawPixelRect(ctx, m.x + 10, m.y + 10, 8, 8, '#000000');
-      drawPixelRect(ctx, m.x + m.width - 18, m.y + 10, 8, 8, '#000000');
+      drawPixelRect(ctx, x, y, 48, 48, '#444');
     }
   };
 
@@ -140,44 +148,38 @@ const GameCanvas: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    if (!isImageLoaded) {
-      ctx.fillStyle = '#0a080d';
+    drawBackground(ctx, gameRef.current.bgOffset);
+    
+    if (gameState === 'PLAYING' || gameState === 'GAME_OVER') {
+      gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
+      drawHero(ctx, gameRef.current.player);
+    }
+
+    if (gameState === 'START') {
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
       ctx.font = '16px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ЗАГРУЗКА...', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
-      return;
-    }
-
-    drawBackground(ctx, gameRef.current.bgOffset);
-    gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
-    drawHero(ctx, gameRef.current.player);
-
-    if (gameState === 'START') {
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-      ctx.fillStyle = '#6226B3';
-      ctx.font = '20px "Press Start 2P"';
-      ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ СТАРТА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА ПРИКЛЮЧЕНИЯ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
     }
 
     if (gameState === 'GAME_OVER') {
-      ctx.fillStyle = 'rgba(40,0,0,0.7)';
+      ctx.fillStyle = 'rgba(40,0,0,0.8)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#ff0000';
       ctx.font = '32px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ПОГИБ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
+      ctx.fillText('ВЫ ПОГИБЛИ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 20);
       ctx.fillStyle = 'white';
-      ctx.font = '14px "Press Start 2P"';
-      ctx.fillText('КЛИК ДЛЯ ПЕРЕЗАПУСКА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 40);
+      ctx.font = '12px "Press Start 2P"';
+      ctx.fillText(`СЧЕТ: ${score}м | РЕКОРД: ${highScore}м`, VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
+      ctx.fillText('КЛИК ДЛЯ ВОЗРОЖДЕНИЯ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 70);
     }
-  }, [isImageLoaded, gameState]);
+  }, [gameState, score, highScore, invulnerableUntil, loadError]);
 
   const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
-    if (engineRef.current.status === 'PLAYING') {
+    if (gameState === 'PLAYING') {
       const dtFactor = deltaTime / 16.67;
       engineRef.current.elapsedTime += deltaTime / 1000;
       engineRef.current.speed = calculateSpeed(engineRef.current.elapsedTime);
@@ -185,7 +187,6 @@ const GameCanvas: React.FC = () => {
 
       const { player, monsters } = gameRef.current;
       
-      // Физика игрока
       player.vy += GRAVITY * dtFactor;
       player.y += player.vy * dtFactor;
 
@@ -193,120 +194,178 @@ const GameCanvas: React.FC = () => {
         player.y = GROUND_Y - player.height;
         player.vy = 0;
         player.state = 'RUNNING';
-        player.jumpsRemaining = 2;
+        player.jumpsRemaining = player.maxJumps;
       }
 
       gameRef.current.bgOffset += currentSpeed * dtFactor;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1;
 
-      // Спавн препятствий
-      const spawnDelay = 2200 / (currentSpeed / 5);
+      const spawnDelay = 2000 / (currentSpeed / 5);
       if (timestamp - gameRef.current.lastSpawnTime > spawnDelay) {
-        const rand = Math.random();
-        let type: MonsterType = 'MIMIC';
-        let obsType: ObstacleType = 'GROUND';
-        let mY = GROUND_Y - 48;
-        let mH = 48;
-
-        if (rand > 0.7) {
-          type = 'BEHOLDER';
-          obsType = 'AIR';
-          mY = GROUND_Y - 160;
-        } else if (rand > 0.4) {
-          type = 'SKELETON';
-          obsType = 'TALL';
-          mY = GROUND_Y - 90;
-          mH = 90;
-        }
-
+        const type: MonsterType = Math.random() > 0.6 ? 'BEHOLDER' : 'MIMIC';
         monsters.push({
           id: Math.random().toString(36).substr(2, 9),
           type,
-          obstacleType: obsType,
+          obstacleType: type === 'BEHOLDER' ? 'AIR' : 'GROUND',
           x: VIRTUAL_WIDTH,
-          y: mY,
+          y: type === 'BEHOLDER' ? GROUND_Y - 160 : GROUND_Y - 48,
           width: 48,
-          height: mH,
+          height: 48,
           speed: currentSpeed,
         });
         gameRef.current.lastSpawnTime = timestamp;
       }
 
-      // Обновление монстров и коллизии
       for (let i = monsters.length - 1; i >= 0; i--) {
         const m = monsters[i];
         m.x -= currentSpeed * dtFactor;
 
-        if (checkCollision(player, m, 20)) {
-          engineRef.current.status = 'GAME_OVER';
-          setGameState('GAME_OVER');
-          if (Math.floor(engineRef.current.distance) > highScore) {
-            setHighScore(Math.floor(engineRef.current.distance));
+        if (checkCollision(player, m, 18) && timestamp > gameRef.current.collisionCooldown && Date.now() > invulnerableUntil) {
+          gameRef.current.collisionCooldown = timestamp + 1000;
+          
+          if (selectedClass) {
+            const check = performACCheck(selectedClass.armorClass);
+            if (check.type === 'SUCCESS' || check.type === 'CRIT_SUCCESS') {
+              addLog(check.message, 'success');
+              setInvulnerableUntil(Date.now() + 1000);
+            } else {
+              addLog(check.message, check.type === 'CRIT_FAIL' ? 'critical' : 'fail');
+              const damage = check.type === 'CRIT_FAIL' ? 2 : 1;
+              takeDamage(damage);
+              setInvulnerableUntil(Date.now() + 1500);
+            }
           }
         }
 
-        if (m.x + m.width < -100) {
-          monsters.splice(i, 1);
+        if (m.x + m.width < -100) monsters.splice(i, 1);
+      }
+
+      if (hp <= 0) {
+        setGameState('GAME_OVER');
+        if (Math.floor(engineRef.current.distance) > highScore) {
+          setHighScore(Math.floor(engineRef.current.distance));
         }
       }
       setScore(Math.floor(engineRef.current.distance));
     }
-    
     draw();
-  }, [highScore, draw]);
+  }, [gameState, hp, selectedClass, invulnerableUntil, highScore, addLog, takeDamage, draw]);
 
   useGameLoop(handleUpdate, true);
 
+  const startNewGame = () => {
+    engineRef.current.elapsedTime = 0;
+    engineRef.current.distance = 0;
+    gameRef.current.monsters = [];
+    gameRef.current.player.y = GROUND_Y - PLAYER_SIZE;
+    gameRef.current.player.vy = 0;
+    gameRef.current.player.maxJumps = selectedClass?.name === 'ROGUE' ? 3 : 2;
+    gameRef.current.player.jumpsRemaining = gameRef.current.player.maxJumps;
+    resetDnd();
+    setGameState('PLAYING');
+    setScore(0);
+  };
+
   const handleInput = () => {
-    if (gameState !== 'PLAYING') {
-      // Сброс состояния для новой игры
-      engineRef.current.status = 'PLAYING';
-      engineRef.current.elapsedTime = 0;
-      engineRef.current.distance = 0;
-      gameRef.current.monsters = [];
-      gameRef.current.player.y = GROUND_Y - PLAYER_SIZE;
-      gameRef.current.player.vy = 0;
-      gameRef.current.player.jumpsRemaining = 2;
-      gameRef.current.lastSpawnTime = performance.now();
-      setGameState('PLAYING');
-      setScore(0);
-    } else {
+    if (gameState === 'START' || gameState === 'GAME_OVER') {
+      setGameState('CLASS_SELECTION');
+    } else if (gameState === 'PLAYING') {
       const { player } = gameRef.current;
       if (player.jumpsRemaining > 0) {
-        player.vy = JUMP_STRENGTH;
+        player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1);
         player.state = 'JUMPING';
         player.jumpsRemaining--;
       }
     }
   };
 
-  useEffect(() => {
-    const kd = (e: KeyboardEvent) => { 
-      if (e.code === 'Space') { 
-        e.preventDefault(); 
-        handleInput(); 
-      } 
-    };
-    window.addEventListener('keydown', kd);
-    return () => window.removeEventListener('keydown', kd);
-  }, [gameState]);
+  if (!isImageLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center bg-[#0a080d] w-full max-w-[800px] aspect-[2/1] border-4 border-primary">
+        <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+        <p className="text-xs uppercase text-secondary">Загрузка ресурсов...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-6 w-full max-w-4xl px-4">
+      {loadError && (
+        <div className="bg-red-900/50 text-[8px] p-2 text-center w-full uppercase">
+          Внимание: Knight2.webp не найден в /public. Используется программный спрайт.
+        </div>
+      )}
+
+      {/* HUD: HP и Класс */}
+      {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
+        <div className="flex justify-between w-full bg-[#1a1621] p-3 border-b-4 border-primary shadow-lg">
+          <div className="flex items-center gap-2">
+            {Array.from({ length: maxHp }).map((_, i) => (
+              <Heart key={i} size={20} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#444'} />
+            ))}
+          </div>
+          <div className="flex items-center gap-4 text-[10px] uppercase">
+            <span className="text-secondary">{selectedClass?.label}</span>
+            <span className="text-primary">{score}м</span>
+          </div>
+        </div>
+      )}
+
+      {/* Выбор класса */}
+      {gameState === 'CLASS_SELECTION' && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
+          <h2 className="text-xl text-primary mb-8 uppercase">ВЫБЕРИТЕ КЛАСС</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-3xl">
+            {(Object.keys(CHARACTER_CLASSES) as CharacterClassName[]).map((key) => {
+              const cls = CHARACTER_CLASSES[key];
+              return (
+                <button
+                  key={key}
+                  onClick={() => { selectClass(key); startNewGame(); }}
+                  className="bg-[#1a1621] border-2 border-primary p-4 hover:bg-primary/20 transition-all flex flex-col items-center gap-3"
+                >
+                  {key === 'FIGHTER' && <Shield className="text-primary" />}
+                  {key === 'ROGUE' && <Zap className="text-yellow-500" />}
+                  {key === 'WIZARD' && <Wand2 className="text-blue-400" />}
+                  <span className="text-sm font-bold">{cls.label}</span>
+                  <span className="text-[8px] opacity-70 leading-relaxed">{cls.description}</span>
+                  <div className="mt-2 text-[8px] text-secondary">AC: {cls.armorClass} | HP: {cls.maxHp}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div 
         className="relative border-4 border-primary shadow-[0_0_30px_rgba(98,38,179,0.4)] overflow-hidden cursor-pointer"
         onClick={handleInput}
       >
         <canvas ref={canvasRef} width={VIRTUAL_WIDTH} height={VIRTUAL_HEIGHT} className="image-pixelated w-full h-auto max-w-[800px]" />
       </div>
-      <div className="grid grid-cols-2 gap-4 w-full max-w-[800px]">
-        <div className="bg-[#1a1621] p-4 border-b-4 border-primary">
-          <p className="text-[10px] text-secondary mb-1">ГЛУБИНА</p>
-          <p className="text-xl text-primary glow-text">{score}м</p>
+
+      {/* Боевой Лог */}
+      {gameState === 'PLAYING' && (
+        <div className="w-full bg-[#0a080d] p-4 border-l-4 border-primary h-32 overflow-hidden flex flex-col-reverse gap-1">
+          {combatLog.map((log) => (
+            <div key={log.id} className={`text-[8px] uppercase ${
+              log.type === 'success' ? 'text-green-400' : 
+              log.type === 'fail' ? 'text-red-400' : 
+              log.type === 'critical' ? 'text-red-600 font-bold' : 'text-gray-400'
+            }`}>
+              {">"} {log.text}
+            </div>
+          ))}
         </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 w-full">
         <div className="bg-[#1a1621] p-4 border-b-4 border-secondary">
-          <p className="text-[10px] text-secondary mb-1">РЕКОРД</p>
-          <p className="text-xl text-secondary">{highScore}м</p>
+          <p className="text-[8px] text-secondary mb-1 uppercase">РЕКОРД</p>
+          <p className="text-lg text-secondary">{highScore}м</p>
+        </div>
+        <div className="bg-[#1a1621] p-4 border-b-4 border-primary flex items-center justify-center">
+           <p className="text-[8px] opacity-50 uppercase text-center">ПРОБЕЛ ИЛИ КЛИК ДЛЯ ПРЫЖКА</p>
         </div>
       </div>
     </div>

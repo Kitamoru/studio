@@ -1,4 +1,4 @@
-export type GameStatus = 'START' | 'PLAYING' | 'GAME_OVER';
+export type GameStatus = 'START' | 'CLASS_SELECTION' | 'PLAYING' | 'GAME_OVER';
 
 export type PlayerActionState = 'RUNNING' | 'JUMPING' | 'DUCKING';
 
@@ -24,6 +24,7 @@ export interface Player extends GameObject {
   state: PlayerActionState;
   jumpsRemaining: number;
   frame: number;
+  maxJumps: number;
 }
 
 export interface EngineState {
@@ -32,6 +33,25 @@ export interface EngineState {
   status: GameStatus;
   lastTimestamp: number;
   elapsedTime: number;
+}
+
+export type CharacterClassName = 'FIGHTER' | 'ROGUE' | 'WIZARD';
+
+export interface CharacterClass {
+  name: CharacterClassName;
+  label: string;
+  description: string;
+  armorClass: number;
+  maxHp: number;
+  jumpMultiplier: number;
+  abilityName: string;
+  abilityCooldown: number;
+}
+
+export interface CombatLogEntry {
+  id: string;
+  text: string;
+  type: 'info' | 'success' | 'critical' | 'fail';
 }
 
 export interface TelegramUser {
