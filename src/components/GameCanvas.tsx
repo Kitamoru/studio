@@ -36,6 +36,7 @@ interface AmbientParticle {
 
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
   const playerImgRef = useRef<HTMLImageElement | null>(null);
   const { hp, maxHp, selectedClass, combatLog, selectClass, takeDamage, addLog, resetDnd } = useDnd();
   
@@ -72,18 +73,21 @@ const GameCanvas: React.FC = () => {
     collisionCooldown: 0,
   });
 
-  // Telegram Web App Initialization
+  // Автопрокрутка лога
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [combatLog]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
       tg.expand();
-      tg.headerColor = '#0D0B12'; // Совпадаем с цветом UI панели
+      tg.headerColor = '#0D0B12';
     }
   }, []);
 
   useEffect(() => {
-    // Инициализация эмбер-частиц
     for (let i = 0; i < 40; i++) {
       gameRef.current.ambientParticles.push({
         x: Math.random() * VIRTUAL_WIDTH,
@@ -333,7 +337,6 @@ const GameCanvas: React.FC = () => {
       if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
         if (playerImgRef.current) {
           ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
-          // Аура готовности двойного прыжка
           if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.y < GROUND_Y - p.height - 20) {
             ctx.save();
             ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.01) * 0.1;
@@ -491,7 +494,7 @@ const GameCanvas: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-full flex flex-col select-none overflow-hidden touch-none relative">
+    <div className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]">
       {gameState === 'CLASS_SELECTION' && (
         <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
           <h2 className="text-xl text-primary mb-8 uppercase glow-text">ВЫБЕРИТЕ КЛАСС</h2>
@@ -520,7 +523,7 @@ const GameCanvas: React.FC = () => {
 
       {/* Верхняя компактная панель UI */}
       {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
-        <div className="w-full flex justify-between items-center bg-[#0D0B12]/80 p-3 px-6 border-b-2 border-primary/30 backdrop-blur-md z-10 shrink-0">
+        <div className="w-full h-[6vh] flex justify-between items-center bg-[#0D0B12]/80 p-3 px-6 border-b-2 border-primary/30 backdrop-blur-md z-10 shrink-0">
           <div className="flex gap-1.5">
             {Array.from({ length: maxHp }).map((_, i) => (
               <Heart key={i} size={14} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#333'} className={i < hp ? 'animate-pulse' : ''} />
@@ -533,10 +536,10 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Основной холст */}
+      {/* Основной холст (занимает 2/3 экрана) */}
       <div 
         className={cn(
-          "relative w-full aspect-[2/1] overflow-hidden cursor-pointer shrink-0",
+          "relative w-full h-[60vh] overflow-hidden cursor-pointer shrink-0 bg-black flex items-center justify-center",
           isShaking && "animate-shake"
         )}
         onClick={handleInput}
@@ -545,7 +548,7 @@ const GameCanvas: React.FC = () => {
           ref={canvasRef} 
           width={VIRTUAL_WIDTH} 
           height={VIRTUAL_HEIGHT} 
-          className="image-pixelated w-full h-full object-contain bg-black" 
+          className="image-pixelated max-w-full max-h-full object-contain" 
         />
         
         {gameState === 'GAME_OVER' && (
@@ -559,19 +562,20 @@ const GameCanvas: React.FC = () => {
         )}
       </div>
 
-      {/* Компактный лог боя */}
+      {/* Компактный лог боя (занимает оставшееся место, логи идут сверху вниз) */}
       {gameState === 'PLAYING' && (
-        <div className="w-full flex-1 bg-[#050406] p-3 overflow-hidden flex flex-col-reverse gap-1.5 border-t-2 border-primary/20">
+        <div className="w-full flex-1 bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide">
           {combatLog.map((log) => (
             <div key={log.id} className={cn(
-              "text-[7px] uppercase flex items-center gap-2 animate-in slide-in-from-left-2",
+              "text-[8px] uppercase flex items-center gap-2 animate-in slide-in-from-left-2",
               log.type === 'success' ? 'text-green-400' : 
               log.type === 'fail' ? 'text-red-400' : 
               log.type === 'critical' ? 'text-accent font-bold' : 'text-gray-500'
             )}>
-              <Sword size={8} /> {log.text}
+              <Sword size={10} /> {log.text}
             </div>
           ))}
+          <div ref={logEndRef} />
         </div>
       )}
     </div>

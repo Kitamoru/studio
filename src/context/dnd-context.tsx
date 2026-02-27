@@ -29,13 +29,15 @@ export const DndProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       text,
       type,
     };
-    setCombatLog(prev => [newEntry, ...prev].slice(0, 5));
+    // Добавляем новые логи в конец массива для отображения сверху вниз
+    setCombatLog(prev => [...prev, newEntry].slice(-8));
   }, []);
 
   const selectClass = useCallback((className: CharacterClassName) => {
     const cls = CHARACTER_CLASSES[className];
     setSelectedClass(cls);
     setHp(cls.maxHp);
+    setCombatLog([]); // Очищаем логи при выборе нового класса
     addLog(`Выбран класс: ${cls.label}`, 'info');
   }, [addLog]);
 
