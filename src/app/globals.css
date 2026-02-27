@@ -3,19 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --background: 260 20% 8%;
+  --background: 260 25% 4%;
   --foreground: 0 0% 100%;
   --primary: 265 65% 55%;
   --secondary: 226 50% 61%;
-  --accent: 226 50% 61%;
+  --accent: 45 100% 50%; /* Gold */
   --radius: 0;
 }
 
 body {
-  background-color: #0f0d12;
+  background-color: #0A080D;
   color: #FFFFFF;
   image-rendering: pixelated;
-  overflow-x: hidden;
+  overflow: hidden;
+  font-family: 'Press Start 2P', cursive;
 }
 
 .image-pixelated {
@@ -29,23 +30,41 @@ body {
   }
 }
 
-/* Retro styles */
-h1, h2, h3, button, span {
-  font-family: 'Press Start 2P', cursive;
+/* Screen Shake Animation */
+@keyframes shake {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  10% { transform: translate(-1px, -2px) rotate(-1deg); }
+  20% { transform: translate(-3px, 0px) rotate(1deg); }
+  30% { transform: translate(3px, 2px) rotate(0deg); }
+  40% { transform: translate(1px, -1px) rotate(1deg); }
+  50% { transform: translate(-1px, 2px) rotate(-1deg); }
+  60% { transform: translate(-3px, 1px) rotate(0deg); }
+  70% { transform: translate(3px, 1px) rotate(-1deg); }
+  80% { transform: translate(-1px, -1px) rotate(1deg); }
+  90% { transform: translate(1px, 2px) rotate(0deg); }
+  100% { transform: translate(1px, -2px) rotate(-1deg); }
 }
 
-/* Custom scrollbar for that retro feel */
-::-webkit-scrollbar {
-  width: 6px;
+.animate-shake {
+  animation: shake 0.5s;
+  animation-iteration-count: infinite;
 }
-::-webkit-scrollbar-track {
-  background: #0f0d12;
-}
-::-webkit-scrollbar-thumb {
-  background: #6226B3;
-  border-radius: 0;
+
+/* Magic Bloom for Double Jump */
+.magic-bloom {
+  filter: drop-shadow(0 0 8px #6226B3) brightness(1.2);
 }
 
 .glow-text {
   text-shadow: 0 0 10px rgba(98, 38, 179, 0.8);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0A080D;
+}
+::-webkit-scrollbar-thumb {
+  background: #6226B3;
 }
