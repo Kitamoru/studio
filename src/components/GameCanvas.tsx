@@ -10,7 +10,7 @@ import { ASSET_MANIFEST } from '@/lib/asset-manifest';
 import { Heart, Shield, Zap, Wand2, Loader2, Sword } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Новые константы для портретной ориентации
+// Константы для портретной ориентации TMA
 const VIRTUAL_WIDTH = 450;
 const VIRTUAL_HEIGHT = 800;
 const GRAVITY = 0.65;
@@ -194,24 +194,56 @@ const GameCanvas: React.FC = () => {
       ctx.lineTo(x + width/2, y + height/2 + 5);
       ctx.fill();
     } else if (type === 'DRAGON') {
+      const flap = Math.sin(time * 0.004) * 20;
+      
+      // Крылья (Большие и эпичные)
+      ctx.fillStyle = '#450A0A';
+      // Левое крыло
+      ctx.beginPath();
+      ctx.moveTo(x + 50, y + 50);
+      ctx.lineTo(x - 30, y + 10 - flap);
+      ctx.lineTo(x + 20, y + 70);
+      ctx.fill();
+      // Правое крыло
+      ctx.beginPath();
+      ctx.moveTo(x + width - 50, y + 50);
+      ctx.lineTo(x + width + 30, y + 10 - flap);
+      ctx.lineTo(x + width - 20, y + 70);
+      ctx.fill();
+
+      // Тело
+      ctx.fillStyle = '#7F1D1D'; 
+      ctx.fillRect(x + 30, y + 40, width - 60, height - 50);
+      
+      // Текстура чешуи
       ctx.fillStyle = '#991B1B';
-      ctx.fillRect(x + 20, y + 30, width - 40, height - 40);
-      const wingFlap = Math.sin(time * 0.004) * 15;
+      for(let i=0; i<3; i++) {
+        for(let j=0; j<3; j++) {
+           ctx.fillRect(x + 45 + i*15, y + 50 + j*10, 4, 4);
+        }
+      }
+
+      // Шея и голова
       ctx.fillStyle = '#7F1D1D';
-      ctx.beginPath();
-      ctx.moveTo(x + 40, y + 40);
-      ctx.lineTo(x - 10, y - wingFlap);
-      ctx.lineTo(x + 40, y + 60);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + width - 40, y + 40);
-      ctx.lineTo(x + width + 10, y - wingFlap);
-      ctx.lineTo(x + width - 40, y + 60);
-      ctx.fill();
-      ctx.fillStyle = '#991B1B';
-      ctx.fillRect(x + 5, y + 10, 30, 30);
+      ctx.fillRect(x + 5, y + 15, 30, 30); // Голова
+      ctx.fillRect(x + 25, y + 30, 20, 20); // Шея
+      
+      // Рога
+      ctx.fillStyle = '#450A0A';
+      ctx.fillRect(x + 10, y + 5, 4, 12);
+      ctx.fillRect(x + 25, y + 5, 4, 12);
+
+      // Глаз (Светящийся)
       ctx.fillStyle = '#FACC15';
-      ctx.fillRect(x + 10, y + 15, 4, 4);
+      ctx.fillRect(x + 12, y + 22, 6, 6);
+      
+      // Огонь в пасти (Мерцающий)
+      const fireSize = Math.random() * 8;
+      ctx.fillStyle = '#EA580C';
+      ctx.fillRect(x - 5 - fireSize, y + 35, 15 + fireSize, 6);
+      ctx.fillStyle = '#F59E0B';
+      ctx.fillRect(x - 2 - fireSize/2, y + 37, 10 + fireSize/2, 2);
+
     } else if (type === 'OGRE') {
       ctx.fillStyle = '#14532D';
       ctx.fillRect(x + 10, y + 20, width - 20, height - 20);
@@ -536,7 +568,7 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Игровой холст (Занимает 2/3 и заполняет все пространство) */}
+      {/* Игровой холст (2/3 экрана) */}
       <div 
         className={cn(
           "relative w-full h-[66vh] overflow-hidden cursor-pointer shrink-0 bg-black",
