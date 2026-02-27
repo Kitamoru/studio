@@ -122,7 +122,7 @@ const GameCanvas: React.FC = () => {
     const time = frame;
     
     // Покачивание при беге
-    const bounce = Math.sin(time * 0.2) * 3;
+    const bounce = Math.sin(time * 0.2) * 2;
     const tilt = isOnGround ? Math.sin(time * 0.2) * 0.05 : 0;
 
     // Тень на земле
@@ -130,78 +130,81 @@ const GameCanvas: React.FC = () => {
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
     const shadowScale = Math.max(0.2, 1 - jumpHeight / 200);
-    ctx.ellipse(x + width/2, GROUND_Y, 20 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width/2, GROUND_Y, 16 * shadowScale, 4 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Плащ (рисуется сзади)
+    // Плащ (длинный, фиолетово-синий)
+    const capeColor = '#5d5dbb';
     const capeY = y + px * 8 + bounce;
-    for (let i = 0; i < 4; i++) {
-        const layerOffset = i * px * 2;
-        const wave = Math.sin(time * 0.12 - i * 0.6) * 10;
-        const layerColor = i === 0 ? '#6B1E1E' : i === 1 ? '#8B2E2E' : i === 2 ? '#A33E3E' : '#B33E3E';
-        drawPixelRect(ctx, x - px * 5 + wave + layerOffset, capeY + i * px, px * 8, height - px * 10 - i * px, layerColor);
+    for (let i = 0; i < 6; i++) {
+        const wave = Math.sin(time * 0.15 - i * 0.5) * 8;
+        const layerX = x - px * (4 + i * 2) + wave;
+        const layerY = capeY + i * px * 2;
+        drawPixelRect(ctx, layerX, layerY, px * 8, px * 4, capeColor);
+        // Тень на плаще
+        if (i % 2 === 0) drawPixelRect(ctx, layerX, layerY, px * 2, px * 4, 'rgba(0,0,0,0.1)');
     }
 
     // Ноги
+    const pantsColor = '#7f8c8d';
+    const bootsColor = '#3e2723';
     if (isOnGround) {
         const runCycle = time * 0.2;
-        const lx1 = x + px * 6 + Math.sin(runCycle) * 12;
-        const ly1 = y + height - px * 8 + Math.max(0, Math.cos(runCycle) * 6);
-        const lx2 = x + px * 14 + Math.sin(runCycle + Math.PI) * 12;
-        const ly2 = y + height - px * 8 + Math.max(0, Math.cos(runCycle + Math.PI) * 6);
+        const lx1 = x + px * 6 + Math.sin(runCycle) * 10;
+        const ly1 = y + height - px * 10 + Math.max(0, Math.cos(runCycle) * 6);
+        const lx2 = x + px * 14 + Math.sin(runCycle + Math.PI) * 10;
+        const ly2 = y + height - px * 10 + Math.max(0, Math.cos(runCycle + Math.PI) * 6);
         
-        drawPixelRect(ctx, lx2, ly2, px * 6, px * 8, '#14111a'); // Дальняя нога
-        drawPixelRect(ctx, lx1, ly1, px * 6, px * 8, '#25202d'); // Ближняя нога
+        // Дальняя нога
+        drawPixelRect(ctx, lx2, ly2, px * 5, px * 6, '#5a6364'); 
+        drawPixelRect(ctx, lx2, ly2 + px * 6, px * 6, px * 4, '#2d1c19');
+        // Ближняя нога
+        drawPixelRect(ctx, lx1, ly1, px * 5, px * 6, pantsColor);
+        drawPixelRect(ctx, lx1, ly1 + px * 6, px * 6, px * 4, bootsColor);
     } else {
         // Поза прыжка
-        drawPixelRect(ctx, x + px * 6, y + height - px * 6, px * 6, px * 8, '#1a1621');
-        drawPixelRect(ctx, x + width - px * 14, y + height - px * 12, px * 6, px * 8, '#1a1621');
+        drawPixelRect(ctx, x + px * 4, y + height - px * 12, px * 5, px * 8, pantsColor);
+        drawPixelRect(ctx, x + width - px * 12, y + height - px * 16, px * 5, px * 8, pantsColor);
+        drawPixelRect(ctx, x + px * 4, y + height - px * 4, px * 6, px * 4, bootsColor);
+        drawPixelRect(ctx, x + width - px * 12, y + height - px * 8, px * 6, px * 4, bootsColor);
     }
 
-    // Основная часть героя (корпус, голова)
+    // Тело и Голова
     ctx.save();
     ctx.translate(x + width/2, y + height/2);
     ctx.rotate(tilt);
     ctx.translate(-(x + width/2), -(y + height/2));
 
-    // Броня корпуса
-    drawPixelRect(ctx, x + px * 3, y + px * 10 + bounce, width - px * 6, px * 18, '#4a5578');
-    drawPixelRect(ctx, x + px * 4, y + px * 11 + bounce, width - px * 8, px * 8, '#5c6ba0');
-    drawPixelRect(ctx, x + px * 5, y + px * 12 + bounce, px * 10, px * 2, '#a5b2e0');
+    const tunicColor = '#5d3a1a';
+    const shirtColor = '#d35400';
+    const skinColor = '#ffdbac';
+    const hairColor = '#ffd700';
 
-    // Наплечники
-    drawPixelRect(ctx, x + px * 1, y + px * 9 + bounce, px * 9, px * 8, '#3a3345');
-    drawPixelRect(ctx, x + width - px * 10, y + px * 9 + bounce, px * 9, px * 8, '#3a3345');
-
-    // Шлем с забралом
-    const helmY = y - px * 10 + bounce;
-    const helmW = width - px * 12;
-    drawPixelRect(ctx, x + px * 6, helmY, helmW, px * 22, '#2d2738'); // База
-    drawPixelRect(ctx, x + px * 8, helmY + px, helmW - px * 4, px * 4, '#3a3345'); // Блик сверху
-    drawPixelRect(ctx, x + px * 5, helmY + px * 6, helmW + px * 2, px * 12, '#1a1621'); // Забрало база
-    drawPixelRect(ctx, x + px * 6, helmY + px * 7, helmW, px * 10, '#3a3345'); // Забрало центр
-    drawPixelRect(ctx, x + px * 7, helmY + px * 9, helmW - px * 2, px * 4, '#0a080d'); // Щель
+    // Туловище (коричневая туника)
+    drawPixelRect(ctx, x + px * 6, y + px * 12 + bounce, px * 12, px * 16, tunicColor);
+    drawPixelRect(ctx, x + px * 7, y + px * 13 + bounce, px * 10, px * 6, '#7d4e24'); // Блик
     
-    // Глаза
-    const eyePulse = Math.abs(Math.sin(time * 0.1)) * 0.4 + 0.6;
-    ctx.shadowBlur = 6 * eyePulse;
-    ctx.shadowColor = '#00FFFF';
-    drawPixelRect(ctx, x + px * 10, helmY + px * 10, px * 3, px * 2, '#00FFFF');
-    drawPixelRect(ctx, x + px * 18, helmY + px * 10, px * 3, px * 2, '#00FFFF');
-    ctx.shadowBlur = 0;
+    // Рукава (оранжевые)
+    drawPixelRect(ctx, x + px * 4, y + px * 14 + bounce, px * 4, px * 6, shirtColor);
+    drawPixelRect(ctx, x + px * 16, y + px * 14 + bounce, px * 4, px * 6, shirtColor);
 
-    // Плюмаж
-    const plumeWave = Math.sin(time * 0.15) * 4;
-    drawPixelRect(ctx, x + width/2 - px, helmY - px * 12 + plumeWave, px * 5, px * 14, '#8B2E2E');
-    drawPixelRect(ctx, x + width/2 + px, helmY - px * 14 + plumeWave, px * 8, px * 8, '#B33E3E');
+    // Руки
+    const armCycle = time * 0.2;
+    const armOff = Math.sin(armCycle) * 4;
+    drawPixelRect(ctx, x + px * 2, y + px * 18 + bounce + armOff, px * 4, px * 4, skinColor); // Левая рука
+    drawPixelRect(ctx, x + px * 18, y + px * 18 + bounce - armOff, px * 4, px * 4, skinColor); // Правая рука
 
-    // Щит (на другой руке, чуть смещен для объема)
-    const shieldX = x + width - px * 8;
-    const shieldY = y + px * 12 + bounce;
-    drawPixelRect(ctx, shieldX, shieldY, px * 14, px * 20, '#2d2738');
-    drawPixelRect(ctx, shieldX + px, shieldY + px, px * 12, px * 18, '#5c6ba0');
-    drawPixelRect(ctx, shieldX + px * 2, shieldY + px * 2, px * 2, px * 2, '#a5b2e0'); // Блик
-
+    // Голова
+    const headY = y + px * 2 + bounce;
+    // Волосы (золотистые)
+    drawPixelRect(ctx, x + px * 7, headY, px * 10, px * 6, hairColor);
+    drawPixelRect(ctx, x + px * 14, headY - px * 2, px * 4, px * 4, '#e6c200'); // Челка/хохолок
+    
+    // Лицо
+    drawPixelRect(ctx, x + px * 8, headY + px * 4, px * 8, px * 8, skinColor);
+    // Глаза (простые точки как в спрайте)
+    drawPixelRect(ctx, x + px * 12, headY + px * 6, px * 2, px * 2, '#2d1c19');
+    
     ctx.restore();
   };
 
