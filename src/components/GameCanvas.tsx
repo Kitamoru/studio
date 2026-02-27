@@ -70,7 +70,7 @@ const GameCanvas: React.FC = () => {
       frame: 0 
     } as Player,
     monsters: [] as Monster[],
-    parallax: [0, 0, 0],
+    parallax: [0, 0, 0, 0], // Добавлен дополнительный слой для глубины
     particles: [] as Particle[],
     ambientParticles: [] as AmbientParticle[],
     collisionCooldown: 0,
@@ -90,15 +90,15 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Initialize ambient dust particles
+    // Инициализация частиц пыли
     gameRef.current.ambientParticles = [];
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 50; i++) {
       gameRef.current.ambientParticles.push({
         x: Math.random() * VIRTUAL_WIDTH, 
         y: Math.random() * VIRTUAL_HEIGHT,
-        speed: 0.2 + Math.random() * 0.5,
+        speed: 0.1 + Math.random() * 0.4,
         size: 1 + Math.random() * 2,
-        opacity: 0.1 + Math.random() * 0.4
+        opacity: 0.1 + Math.random() * 0.5
       });
     }
 
@@ -300,74 +300,102 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
-    // 1. Ambient particles (Dust)
-    gameRef.current.ambientParticles.forEach(p => {
-      ctx.fillStyle = '#EAB308';
-      ctx.globalAlpha = p.opacity;
-      ctx.fillRect(p.x, p.y, p.size, p.size);
-      p.x -= p.speed * (engineRef.current.speed / 5);
-      if (p.x < -10) p.x = VIRTUAL_WIDTH + 10;
-    });
-    ctx.globalAlpha = 1.0;
+    const time = Date.now();
 
-    // 2. Distant Arches & Pillars (Parallax Layer 0)
-    let offsetArch = gameRef.current.parallax[0] % 600;
-    for (let x = -offsetArch; x < VIRTUAL_WIDTH + 600; x += 600) {
-      // Wall behind arches
+    // 1. Глубокий фон: Стена (самый медленный параллакс)
+    let wallOffset = gameRef.current.parallax[0] % 400;
+    ctx.fillStyle = '#050406';
+    ctx.fillRect(0, 0, VIRTUAL_WIDTH, GROUND_Y);
+    
+    for (let x = -wallOffset; x < VIRTUAL_WIDTH + 400; x += 400) {
+      // Текстура стены
       ctx.fillStyle = '#0D0B12';
-      ctx.fillRect(x, 0, 600, GROUND_Y);
+      ctx.fillRect(x, 0, 395, GROUND_Y);
+      
+      // Дальние факелы (на стене) - они неоднородны и движутся со стеной
+      if ((x / 400) % 2 === 0) {
+        const tx = x + 150;
+        const ty = 200 + Math.sin(x) * 50;
+        const flicker = Math.random() * 4;
+        const grad = ctx.createRadialGradient(tx, ty, 0, tx, ty, 30 + flicker);
+        grad.addColorStop(0, 'rgba(217, 119, 6, 0.2)'); 
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad; 
+        ctx.beginPath(); ctx.arc(tx, ty, 30 + flicker, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1A0B02'; ctx.fillRect(tx - 2, ty + 10, 4, 15);
+        ctx.fillStyle = '#D97706'; ctx.beginPath(); ctx.arc(tx, ty + 8, 3, 0, Math.PI*2); ctx.fill();
+      }
+    }
 
-      // Columns
-      ctx.fillStyle = '#1A1621';
-      ctx.fillRect(x + 50, 0, 60, GROUND_Y);
-      ctx.fillRect(x + 490, 0, 60, GROUND_Y);
+    // 2. Средний фон: Колонны и Арки (перекрывают стену и факелы)
+    let archOffset = gameRef.current.parallax[1] % 600;
+    for (let x = -archOffset; x < VIRTUAL_WIDTH + 600; x += 600) {
+      // Колонны (ближе к игроку)
+      ctx.fillStyle = '#16131C';
+      ctx.fillRect(x + 50, 0, 70, GROUND_Y);
+      ctx.fillRect(x + 480, 0, 70, GROUND_Y);
 
-      // Arch Top
+      // Верхняя часть арки
       ctx.beginPath();
-      ctx.ellipse(x + 300, 150, 250, 120, 0, Math.PI, 0, true);
+      ctx.ellipse(x + 300, 150, 250, 100, 0, Math.PI, 0, true);
       ctx.lineTo(x + 550, 0);
       ctx.lineTo(x + 50, 0);
       ctx.closePath();
       ctx.fill();
 
-      // Stone texture / lines
+      // Текстура на колоннах
       ctx.strokeStyle = '#25202D';
       ctx.lineWidth = 1;
-      for(let i=0; i<10; i++) {
-        ctx.beginPath(); ctx.moveTo(x+50, i*80); ctx.lineTo(x+110, i*80); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x+490, i*80); ctx.lineTo(x+550, i*80); ctx.stroke();
+      for(let i=0; i<8; i++) {
+        ctx.beginPath(); ctx.moveTo(x+50, i*100 + 50); ctx.lineTo(x+120, i*100 + 50); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x+480, i*100 + 50); ctx.lineTo(x+550, i*100 + 50); ctx.stroke();
       }
 
-      // Torches on columns
-      const torchX1 = x + 80;
-      const torchX2 = x + 520;
-      [torchX1, torchX2].forEach(tx => {
+      // Ближние факелы (на колоннах)
+      [x + 85, x + 515].forEach(tx => {
         const ty = 350;
-        const flicker = Math.random() * 6;
-        const grad = ctx.createRadialGradient(tx, ty, 0, tx, ty, 35 + flicker);
-        grad.addColorStop(0, 'rgba(245, 158, 11, 0.3)'); 
-        grad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+        const flicker = Math.random() * 8;
+        const grad = ctx.createRadialGradient(tx, ty, 0, tx, ty, 50 + flicker);
+        grad.addColorStop(0, 'rgba(245, 158, 11, 0.4)'); 
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = grad; 
-        ctx.beginPath(); ctx.arc(tx, ty, 35 + flicker, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#422006'; ctx.fillRect(tx - 3, ty + 10, 6, 25);
+        ctx.beginPath(); ctx.arc(tx, ty, 50 + flicker, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#422006'; ctx.fillRect(tx - 4, ty + 10, 8, 30);
         ctx.fillStyle = '#F59E0B'; 
-        ctx.beginPath(); ctx.moveTo(tx-5, ty+10); ctx.quadraticCurveTo(tx, ty-10-flicker, tx+5, ty+10); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(tx-6, ty+10); ctx.quadraticCurveTo(tx, ty-15-flicker, tx+6, ty+10); ctx.fill();
       });
     }
 
-    // 3. Ground (Parallax Layer 2)
+    // 3. Частицы пыли (в воздухе, на разных слоях)
+    gameRef.current.ambientParticles.forEach(p => {
+      ctx.fillStyle = '#EAB308';
+      ctx.globalAlpha = p.opacity;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+      p.x -= p.speed * (engineRef.current.speed / 5);
+      // Небольшое вертикальное дрожание
+      p.y += Math.sin(time * 0.001 + p.x * 0.01) * 0.2;
+      
+      if (p.x < -10) {
+        p.x = VIRTUAL_WIDTH + 10;
+        p.y = Math.random() * VIRTUAL_HEIGHT;
+      }
+    });
+    ctx.globalAlpha = 1.0;
+
+    // 4. Пол
     ctx.fillStyle = '#0A080D';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
-    let offset2 = gameRef.current.parallax[2] % 80;
+    let floorOffset = gameRef.current.parallax[2] % 80;
     ctx.strokeStyle = '#25202D';
-    for (let x = -offset2; x < VIRTUAL_WIDTH + 80; x += 80) {
+    for (let x = -floorOffset; x < VIRTUAL_WIDTH + 80; x += 80) {
       ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.lineTo(x, VIRTUAL_HEIGHT); ctx.stroke();
     }
-    // Stones on the floor
-    ctx.fillStyle = '#1A1621';
+    
+    // Камни на полу
     for(let i=0; i<15; i++) {
-      const rx = (i * 120 + gameRef.current.parallax[2] * 0.8) % (VIRTUAL_WIDTH + 100) - 50;
-      ctx.fillRect(rx, GROUND_Y + (i % 3) * 20 + 10, 10 + (i % 5), 5 + (i % 2));
+      const rx = (i * 120 + gameRef.current.parallax[2]) % (VIRTUAL_WIDTH + 100) - 50;
+      ctx.fillStyle = '#1A1621';
+      ctx.fillRect(rx, GROUND_Y + (i % 4) * 15 + 10, 12 + (i % 6), 6 + (i % 3));
     }
   };
 
@@ -378,14 +406,9 @@ const GameCanvas: React.FC = () => {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-    const grad = ctx.createLinearGradient(0, 0, 0, VIRTUAL_HEIGHT);
-    grad.addColorStop(0, '#020103');
-    grad.addColorStop(1, '#08060A');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-
     drawBackground(ctx);
 
+    // Частицы эффектов (прыжки, удары)
     gameRef.current.particles.forEach((p, i) => {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
@@ -395,6 +418,7 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
+    // Монстры и игрок (рисуются поверх фона)
     gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
     
     const p = gameRef.current.player;
@@ -423,9 +447,10 @@ const GameCanvas: React.FC = () => {
       engineRef.current.speed = calculateSpeed(engineRef.current.elapsedTime);
       const currentSpeed = engineRef.current.speed;
 
-      gameRef.current.parallax[0] += currentSpeed * 0.15 * dtFactor;
-      gameRef.current.parallax[1] += currentSpeed * 0.5 * dtFactor;
-      gameRef.current.parallax[2] += currentSpeed * 1.0 * dtFactor;
+      // Настройка параллакса для разных слоев
+      gameRef.current.parallax[0] += currentSpeed * 0.2 * dtFactor; // Стена
+      gameRef.current.parallax[1] += currentSpeed * 0.5 * dtFactor; // Арки
+      gameRef.current.parallax[2] += currentSpeed * 1.0 * dtFactor; // Пол
 
       const { player, monsters } = gameRef.current;
       player.vy += GRAVITY * dtFactor;
@@ -441,6 +466,7 @@ const GameCanvas: React.FC = () => {
       const scoreMultiplier = selectedClass?.name === 'WIZARD' ? 1.25 : 1.0;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1 * scoreMultiplier;
 
+      // Пассивная способность Барда: Регенерация
       if (selectedClass?.name === 'BARD' && timestamp - lastRegenRef.current > 20000) {
         if (hp < maxHp) {
           heal(1);
@@ -449,6 +475,7 @@ const GameCanvas: React.FC = () => {
         lastRegenRef.current = timestamp;
       }
 
+      // Спавн монстров
       if (timestamp - gameRef.current.collisionCooldown > (1600 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
