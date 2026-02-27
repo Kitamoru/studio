@@ -11,6 +11,7 @@ const JUMP_STRENGTH = -12;
 const GROUND_Y = 340;
 const PLAYER_X = 120;
 const INITIAL_MONSTER_SPEED = 5.0;
+const PLAYER_SIZE = 72; // Увеличено на 50% от исходных 48
 
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,9 +26,9 @@ const GameCanvas: React.FC = () => {
   const gameRef = useRef({
     player: { 
       x: PLAYER_X, 
-      y: GROUND_Y - 48, 
-      width: 48, 
-      height: 48, 
+      y: GROUND_Y - PLAYER_SIZE, 
+      width: PLAYER_SIZE, 
+      height: PLAYER_SIZE, 
       vy: 0, 
       isJumping: false, 
       jumpsRemaining: 2, 
@@ -56,20 +57,17 @@ const GameCanvas: React.FC = () => {
   // Загрузка спрайта Knight2.webp
   useEffect(() => {
     const img = new Image();
-    // Пытаемся загрузить Knight2.webp из папки public
     img.src = '/Knight2.webp';
     
     img.onload = () => {
-      console.log("Спрайт Knight2.webp успешно загружен!");
       playerImgRef.current = img;
       setIsImageLoaded(true);
       setLoadError(false);
     };
 
     img.onerror = () => {
-      console.error("Не удалось загрузить /Knight2.webp. Проверьте путь: public/Knight2.webp");
       setLoadError(true);
-      setIsImageLoaded(true); // Завершаем экран загрузки, чтобы показать игру с запасным героем
+      setIsImageLoaded(true); // Позволяем играть с запасным героем
     };
   }, []);
 
@@ -129,25 +127,24 @@ const GameCanvas: React.FC = () => {
     const { x, y, width, height } = player;
 
     if (!loadError && playerImgRef.current) {
-      // Рисуем загруженный спрайт Knight2.webp
       ctx.drawImage(playerImgRef.current, Math.floor(x), Math.floor(y), width, height);
     } else {
-      // Запасной вариант (Программный Принц)
-      const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
-      const jumpOffset = player.isJumping ? -5 : 0;
+      // Запасной Принц (адаптированный под размер 72x72)
+      const walk = Math.sin(gameRef.current.frameCount * 0.2) * 6;
+      const jumpOffset = player.isJumping ? -8 : 0;
       
       // Плащ (фиолетовый)
       ctx.fillStyle = '#6226B3';
-      const wave = Math.sin(gameRef.current.frameCount * 0.1) * 3;
-      ctx.fillRect(x - 8, y + 16 + walk/2 + wave, 24, 28);
+      const wave = Math.sin(gameRef.current.frameCount * 0.1) * 5;
+      ctx.fillRect(x - 12, y + 24 + walk/2 + wave, 36, 42);
       
       // Тело (коричневое)
-      drawPixelRect(ctx, x + 8, y + 12 + walk + jumpOffset, 28, 30, '#4a2c1d'); 
+      drawPixelRect(ctx, x + 12, y + 18 + walk + jumpOffset, 42, 45, '#4a2c1d'); 
       // Рубашка (оранжевая)
-      drawPixelRect(ctx, x + 12, y + 14 + walk + jumpOffset, 20, 10, '#ff8c00');
+      drawPixelRect(ctx, x + 18, y + 21 + walk + jumpOffset, 30, 15, '#ff8c00');
       // Голова/Волосы
-      drawPixelRect(ctx, x + 14, y + 4 + walk + jumpOffset, 16, 16, '#f0d0a0'); 
-      drawPixelRect(ctx, x + 12, y + 2 + walk + jumpOffset, 20, 8, '#d4af37');  
+      drawPixelRect(ctx, x + 21, y + 6 + walk + jumpOffset, 24, 24, '#f0d0a0'); 
+      drawPixelRect(ctx, x + 18, y + 3 + walk + jumpOffset, 30, 12, '#d4af37');  
     }
 
     // Тень под ногами
@@ -155,19 +152,41 @@ const GameCanvas: React.FC = () => {
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
     const shadowScale = Math.max(0.2, 1 - jumpHeight / 200);
-    ctx.ellipse(x + width/2, GROUND_Y, 16 * shadowScale, 4 * shadowScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width/2, GROUND_Y, 24 * shadowScale, 6 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
   };
 
   const drawMonster = (ctx: CanvasRenderingContext2D, m: Monster) => {
+    const { x, y, width, height } = m;
+    
     if (m.type === 'BEHOLDER') {
-      const px = 2;
-      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#833440');
-      drawPixelRect(ctx, m.x + px*4, m.y + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
-      drawPixelRect(ctx, m.x + m.width/2 - 4, m.y + m.height/2 - 4, 8, 8, '#1a1621');
+      // Тело
+      drawPixelRect(ctx, x, y, width, height, '#833440');
+      drawPixelRect(ctx, x + 4, y + 4, width - 8, height - 8, '#a64253');
+      
+      // Глаз
+      drawPixelRect(ctx, x + 10, y + 10, width - 20, height - 20, '#FFFFFF');
+      // Зрачок (следит за игроком)
+      const dx = (gameRef.current.player.x - x) / 100;
+      const dy = (gameRef.current.player.y - y) / 100;
+      const limitedDx = Math.max(-8, Math.min(8, dx));
+      const limitedDy = Math.max(-8, Math.min(8, dy));
+      drawPixelRect(ctx, x + width/2 - 6 + limitedDx, y + height/2 - 6 + limitedDy, 12, 12, '#1a1621');
+      
+      // Блик на зрачке
+      drawPixelRect(ctx, x + width/2 - 2 + limitedDx, y + height/2 - 2 + limitedDy, 4, 4, '#FFFFFF');
     } else if (m.type === 'MIMIC') {
-      drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#3a2115');
-      drawPixelRect(ctx, m.x + 2, m.y + 2, m.width - 4, m.height - 4, '#5c3321');
+      // Корпус сундука
+      drawPixelRect(ctx, x, y, width, height, '#3a2115');
+      drawPixelRect(ctx, x + 4, y + 4, width - 8, height - 8, '#5c3321');
+      
+      // Железные вставки (ребра)
+      drawPixelRect(ctx, x, y, 6, height, '#2d2738');
+      drawPixelRect(ctx, x + width - 6, y, 6, height, '#2d2738');
+      drawPixelRect(ctx, x, y + height/2 - 3, width, 6, '#2d2738');
+      
+      // Замок
+      drawPixelRect(ctx, x + width/2 - 4, y + height/2, 8, 10, '#d4af37');
     }
   };
 
@@ -191,7 +210,7 @@ const GameCanvas: React.FC = () => {
     const { player, monsters, state, lastSpawn, frameCount } = gameRef.current;
     if (state !== 'PLAYING') return;
 
-    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 100);
+    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 150);
     gameRef.current.bgOffset += currentSpeed;
 
     player.vy += GRAVITY;
@@ -205,10 +224,10 @@ const GameCanvas: React.FC = () => {
       player.jumpsRemaining = 2;
     }
 
-    const spawnRate = Math.max(40, 130 - (gameRef.current.score / 20));
+    const spawnRate = Math.max(50, 140 - (gameRef.current.score / 25));
     if (frameCount - lastSpawn > spawnRate + Math.random() * 60) {
       const type: MonsterType = Math.random() > 0.5 ? 'BEHOLDER' : 'MIMIC';
-      const mY = type === 'BEHOLDER' ? GROUND_Y - 130 : GROUND_Y - 48;
+      const mY = type === 'BEHOLDER' ? GROUND_Y - 140 : GROUND_Y - 48;
       monsters.push({
         id: Math.random().toString(36).substr(2, 9),
         type,
@@ -230,7 +249,8 @@ const GameCanvas: React.FC = () => {
       }
       m.x -= m.speed;
 
-      const pad = 12;
+      // Хитбокс с учетом нового размера героя
+      const pad = 16;
       if (
         player.x < m.x + m.width - pad &&
         player.x + player.width - pad > m.x &&
@@ -245,7 +265,7 @@ const GameCanvas: React.FC = () => {
 
       if (m.x + m.width < 0) {
         monsters.splice(i, 1);
-        gameRef.current.score += 15;
+        gameRef.current.score += 20;
         setScore(Math.floor(gameRef.current.score));
       }
     }
@@ -260,7 +280,6 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
     
-    // Экран загрузки
     if (!isImageLoaded) {
       ctx.fillStyle = 'rgba(0,0,0,0.95)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
@@ -274,12 +293,11 @@ const GameCanvas: React.FC = () => {
     gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
     drawHero(ctx, gameRef.current.player);
 
-    // Подсказка об ошибке загрузки Knight2.webp
     if (loadError && gameRef.current.state !== 'PLAYING') {
       ctx.fillStyle = 'rgba(255, 68, 68, 0.9)';
       ctx.font = '10px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ВНИМАНИЕ: ФАЙЛ /public/Knight2.webp НЕ НАЙДЕН', VIRTUAL_WIDTH / 2, 40);
+      ctx.fillText('ВНИМАНИЕ: ФАЙЛ Knight2.webp НЕ НАЙДЕН', VIRTUAL_WIDTH / 2, 40);
       ctx.fillText('ИСПОЛЬЗУЕТСЯ ЗАПАСНОЙ ПЕРСОНАЖ', VIRTUAL_WIDTH / 2, 60);
     }
 
@@ -319,7 +337,7 @@ const GameCanvas: React.FC = () => {
       gameRef.current.monsters = [];
       gameRef.current.score = 0;
       gameRef.current.frameCount = 0;
-      player.y = GROUND_Y - 48;
+      player.y = GROUND_Y - PLAYER_SIZE;
       player.vy = 0;
       player.isJumping = false;
       player.jumpsRemaining = 2;
