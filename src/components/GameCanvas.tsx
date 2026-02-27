@@ -69,7 +69,6 @@ const GameCanvas: React.FC = () => {
         ctx.fillStyle = isAlt ? '#1a1621' : '#14111a';
         ctx.fillRect(x, row * brickH, brickW - 2, brickH - 2);
         
-        // Микро-блик для объема кирпича
         ctx.fillStyle = 'rgba(255,255,255,0.03)';
         ctx.fillRect(x, row * brickH, brickW - 2, 1);
         ctx.fillRect(x, row * brickH, 1, brickH - 2);
@@ -80,33 +79,29 @@ const GameCanvas: React.FC = () => {
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
-      // Колонна
       drawPixelRect(ctx, x, 0, 48, GROUND_Y, '#2d2738');
       drawPixelRect(ctx, x + 4, 0, 6, GROUND_Y, '#3a3345');
       drawPixelRect(ctx, x + 38, 0, 10, GROUND_Y, '#1a1621');
       
-      // Факел на кронштейне
       const torchY = 160;
       const bracketX = x + 30;
-      drawPixelRect(ctx, bracketX - 6, torchY + 8, 12, 16, '#1a1621'); // Держатель
-      drawPixelRect(ctx, bracketX, torchY + 4, 18, 6, '#1a1621'); // Плечо кронштейна
-      drawPixelRect(ctx, bracketX + 14, torchY - 4, 14, 12, '#2d2738'); // Чаша
-      drawPixelRect(ctx, bracketX + 12, torchY - 2, 18, 4, '#1a1621'); // Обод чаши
+      drawPixelRect(ctx, bracketX - 6, torchY + 8, 12, 16, '#1a1621'); 
+      drawPixelRect(ctx, bracketX, torchY + 4, 18, 6, '#1a1621'); 
+      drawPixelRect(ctx, bracketX + 14, torchY - 4, 14, 12, '#2d2738'); 
+      drawPixelRect(ctx, bracketX + 12, torchY - 2, 18, 4, '#1a1621'); 
       
-      // Пламя
       const flicker = Math.sin(frameCount * 0.15) * 4;
       const flameX = bracketX + 18;
       const flameY = torchY - 25 + flicker;
       
       ctx.shadowBlur = 25 + flicker;
       ctx.shadowColor = 'rgba(255, 120, 0, 0.7)';
-      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); // Внешнее пламя
-      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); // Ядро
-      drawPixelRect(ctx, flameX + 2, flameY + 8, 4, 10, '#ffff00'); // Центр
+      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); 
+      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); 
+      drawPixelRect(ctx, flameX + 2, flameY + 8, 4, 10, '#ffff00'); 
       ctx.shadowBlur = 0;
     }
 
-    // Пол
     const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, VIRTUAL_HEIGHT);
     groundGrad.addColorStop(0, '#2d2738');
     groundGrad.addColorStop(1, '#0a080d');
@@ -116,16 +111,15 @@ const GameCanvas: React.FC = () => {
 
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
     const { x, y, width, height, frame } = player;
-    const px = 2; // Базовый размер пикселя для детализации
+    const px = 2; 
     
     const isOnGround = y >= GROUND_Y - height - 2;
     const time = frame;
     
-    // Покачивание при беге
     const bounce = Math.sin(time * 0.2) * 2;
     const tilt = isOnGround ? Math.sin(time * 0.2) * 0.05 : 0;
 
-    // Тень на земле
+    // Тень
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -133,43 +127,38 @@ const GameCanvas: React.FC = () => {
     ctx.ellipse(x + width/2, GROUND_Y, 16 * shadowScale, 4 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Плащ (длинный, фиолетово-синий)
-    const capeColor = '#5d5dbb';
+    // ПЛАЩ (Фиолетовый)
+    const capeColor = '#6a4eb8';
     const capeY = y + px * 8 + bounce;
-    for (let i = 0; i < 6; i++) {
-        const wave = Math.sin(time * 0.15 - i * 0.5) * 8;
-        const layerX = x - px * (4 + i * 2) + wave;
+    for (let i = 0; i < 7; i++) {
+        const wave = Math.sin(time * 0.15 - i * 0.4) * 6;
+        const layerX = x - px * (2 + i * 2) + wave;
         const layerY = capeY + i * px * 2;
-        drawPixelRect(ctx, layerX, layerY, px * 8, px * 4, capeColor);
-        // Тень на плаще
-        if (i % 2 === 0) drawPixelRect(ctx, layerX, layerY, px * 2, px * 4, 'rgba(0,0,0,0.1)');
+        const layerW = px * (10 - i); 
+        drawPixelRect(ctx, layerX, layerY, layerW, px * 3, capeColor);
+        if (i % 2 === 0) drawPixelRect(ctx, layerX, layerY, px, px * 3, 'rgba(0,0,0,0.2)');
     }
 
-    // Ноги
-    const pantsColor = '#7f8c8d';
-    const bootsColor = '#3e2723';
+    // НОГИ (Серые штаны)
+    const pantsColor = '#7e7e7e';
+    const bootsColor = '#2a1a10';
     if (isOnGround) {
-        const runCycle = time * 0.2;
-        const lx1 = x + px * 6 + Math.sin(runCycle) * 10;
-        const ly1 = y + height - px * 10 + Math.max(0, Math.cos(runCycle) * 6);
-        const lx2 = x + px * 14 + Math.sin(runCycle + Math.PI) * 10;
-        const ly2 = y + height - px * 10 + Math.max(0, Math.cos(runCycle + Math.PI) * 6);
+        const runCycle = time * 0.25;
+        const l1 = Math.sin(runCycle) * 12;
+        const l2 = Math.sin(runCycle + Math.PI) * 12;
         
-        // Дальняя нога
-        drawPixelRect(ctx, lx2, ly2, px * 5, px * 6, '#5a6364'); 
-        drawPixelRect(ctx, lx2, ly2 + px * 6, px * 6, px * 4, '#2d1c19');
-        // Ближняя нога
-        drawPixelRect(ctx, lx1, ly1, px * 5, px * 6, pantsColor);
-        drawPixelRect(ctx, lx1, ly1 + px * 6, px * 6, px * 4, bootsColor);
+        drawPixelRect(ctx, x + px * 10 + l2, y + height - px * 10, px * 5, px * 6, '#5a5a5a'); 
+        drawPixelRect(ctx, x + px * 10 + l2, y + height - px * 4, px * 6, px * 4, bootsColor);
+        drawPixelRect(ctx, x + px * 6 + l1, y + height - px * 10, px * 5, px * 6, pantsColor);
+        drawPixelRect(ctx, x + px * 6 + l1, y + height - px * 4, px * 6, px * 4, bootsColor);
     } else {
-        // Поза прыжка
         drawPixelRect(ctx, x + px * 4, y + height - px * 12, px * 5, px * 8, pantsColor);
         drawPixelRect(ctx, x + width - px * 12, y + height - px * 16, px * 5, px * 8, pantsColor);
         drawPixelRect(ctx, x + px * 4, y + height - px * 4, px * 6, px * 4, bootsColor);
         drawPixelRect(ctx, x + width - px * 12, y + height - px * 8, px * 6, px * 4, bootsColor);
     }
 
-    // Тело и Голова
+    // ТУЛОВИЩЕ И ГОЛОВА
     ctx.save();
     ctx.translate(x + width/2, y + height/2);
     ctx.rotate(tilt);
@@ -180,30 +169,22 @@ const GameCanvas: React.FC = () => {
     const skinColor = '#ffdbac';
     const hairColor = '#ffd700';
 
-    // Туловище (коричневая туника)
-    drawPixelRect(ctx, x + px * 6, y + px * 12 + bounce, px * 12, px * 16, tunicColor);
-    drawPixelRect(ctx, x + px * 7, y + px * 13 + bounce, px * 10, px * 6, '#7d4e24'); // Блик
+    drawPixelRect(ctx, x + px * 6, y + px * 10 + bounce, px * 12, px * 18, tunicColor);
+    drawPixelRect(ctx, x + px * 7, y + px * 11 + bounce, px * 10, px * 6, '#7d4e24'); 
     
-    // Рукава (оранжевые)
-    drawPixelRect(ctx, x + px * 4, y + px * 14 + bounce, px * 4, px * 6, shirtColor);
-    drawPixelRect(ctx, x + px * 16, y + px * 14 + bounce, px * 4, px * 6, shirtColor);
+    drawPixelRect(ctx, x + px * 4, y + px * 12 + bounce, px * 4, px * 8, shirtColor);
+    drawPixelRect(ctx, x + px * 16, y + px * 12 + bounce, px * 4, px * 8, shirtColor);
 
-    // Руки
-    const armCycle = time * 0.2;
-    const armOff = Math.sin(armCycle) * 4;
-    drawPixelRect(ctx, x + px * 2, y + px * 18 + bounce + armOff, px * 4, px * 4, skinColor); // Левая рука
-    drawPixelRect(ctx, x + px * 18, y + px * 18 + bounce - armOff, px * 4, px * 4, skinColor); // Правая рука
+    const armCycle = time * 0.25;
+    const armOff = Math.sin(armCycle) * 6;
+    drawPixelRect(ctx, x + px * 2, y + px * 18 + bounce + armOff, px * 4, px * 4, skinColor);
+    drawPixelRect(ctx, x + px * 18, y + px * 18 + bounce - armOff, px * 4, px * 4, skinColor);
 
-    // Голова
     const headY = y + px * 2 + bounce;
-    // Волосы (золотистые)
-    drawPixelRect(ctx, x + px * 7, headY, px * 10, px * 6, hairColor);
-    drawPixelRect(ctx, x + px * 14, headY - px * 2, px * 4, px * 4, '#e6c200'); // Челка/хохолок
-    
-    // Лицо
-    drawPixelRect(ctx, x + px * 8, headY + px * 4, px * 8, px * 8, skinColor);
-    // Глаза (простые точки как в спрайте)
-    drawPixelRect(ctx, x + px * 12, headY + px * 6, px * 2, px * 2, '#2d1c19');
+    drawPixelRect(ctx, x + px * 7, headY, px * 10, px * 7, hairColor);
+    drawPixelRect(ctx, x + px * 14, headY - px * 2, px * 4, px * 4, '#e6c200');
+    drawPixelRect(ctx, x + px * 8, headY + px * 5, px * 8, px * 8, skinColor);
+    drawPixelRect(ctx, x + px * 12, headY + px * 8, px * 2, px * 2, '#2d1c19');
     
     ctx.restore();
   };
