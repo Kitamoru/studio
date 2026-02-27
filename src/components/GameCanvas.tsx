@@ -75,7 +75,7 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Колонны и факелы
+    // Колонны и факелы на кронштейнах
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
@@ -85,20 +85,23 @@ const GameCanvas: React.FC = () => {
       
       const torchY = 160;
       const bracketX = x + 30;
-      drawPixelRect(ctx, bracketX - 6, torchY + 8, 12, 16, '#1a1621'); 
-      drawPixelRect(ctx, bracketX, torchY + 4, 18, 6, '#1a1621'); 
-      drawPixelRect(ctx, bracketX + 14, torchY - 4, 14, 12, '#2d2738'); 
-      drawPixelRect(ctx, bracketX + 12, torchY - 2, 18, 4, '#1a1621'); 
+      
+      // Железный кронштейн (держатель факела)
+      drawPixelRect(ctx, bracketX - 6, torchY + 8, 12, 16, '#1a1621'); // Основание
+      drawPixelRect(ctx, bracketX, torchY + 4, 18, 6, '#1a1621'); // Колено
+      drawPixelRect(ctx, bracketX + 14, torchY - 4, 14, 12, '#2d2738'); // Чаша
+      drawPixelRect(ctx, bracketX + 12, torchY - 2, 18, 4, '#1a1621'); // Обод
       
       const flicker = Math.sin(frameCount * 0.15) * 4;
       const flameX = bracketX + 18;
       const flameY = torchY - 25 + flicker;
       
+      // Эффект свечения
       ctx.shadowBlur = 25 + flicker;
       ctx.shadowColor = 'rgba(255, 120, 0, 0.7)';
-      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); 
-      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); 
-      drawPixelRect(ctx, flameX + 2, flameY + 8, 4, 10, '#ffff00'); 
+      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); // Внешнее пламя
+      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); // Среднее
+      drawPixelRect(ctx, flameX + 2, flameY + 8, 4, 10, '#ffff00'); // Ядро
       ctx.shadowBlur = 0;
     }
 
@@ -111,15 +114,16 @@ const GameCanvas: React.FC = () => {
 
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
     const { x, y, width, height, frame } = player;
-    const px = 2; 
+    const px = 2; // Базовый размер "пикселя" для отрисовки
     
     const isOnGround = y >= GROUND_Y - height - 2;
     const time = frame;
     
+    // Плавное покачивание
     const bounce = Math.sin(time * 0.2) * 2;
     const tilt = isOnGround ? Math.sin(time * 0.2) * 0.05 : 0;
 
-    // Тень
+    // Тень под ногами
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -127,7 +131,7 @@ const GameCanvas: React.FC = () => {
     ctx.ellipse(x + width/2, GROUND_Y, 16 * shadowScale, 4 * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // ПЛАЩ (Фиолетовый)
+    // ПЛАЩ (Фиолетовый) - рисуется первым, чтобы быть сзади
     const capeColor = '#6a4eb8';
     const capeY = y + px * 8 + bounce;
     for (let i = 0; i < 7; i++) {
@@ -143,15 +147,19 @@ const GameCanvas: React.FC = () => {
     const pantsColor = '#7e7e7e';
     const bootsColor = '#2a1a10';
     if (isOnGround) {
+        // Анимация шагов
         const runCycle = time * 0.25;
         const l1 = Math.sin(runCycle) * 12;
         const l2 = Math.sin(runCycle + Math.PI) * 12;
         
+        // Нога 1
         drawPixelRect(ctx, x + px * 10 + l2, y + height - px * 10, px * 5, px * 6, '#5a5a5a'); 
         drawPixelRect(ctx, x + px * 10 + l2, y + height - px * 4, px * 6, px * 4, bootsColor);
+        // Нога 2
         drawPixelRect(ctx, x + px * 6 + l1, y + height - px * 10, px * 5, px * 6, pantsColor);
         drawPixelRect(ctx, x + px * 6 + l1, y + height - px * 4, px * 6, px * 4, bootsColor);
     } else {
+        // Поза в прыжке
         drawPixelRect(ctx, x + px * 4, y + height - px * 12, px * 5, px * 8, pantsColor);
         drawPixelRect(ctx, x + width - px * 12, y + height - px * 16, px * 5, px * 8, pantsColor);
         drawPixelRect(ctx, x + px * 4, y + height - px * 4, px * 6, px * 4, bootsColor);
@@ -169,22 +177,26 @@ const GameCanvas: React.FC = () => {
     const skinColor = '#ffdbac';
     const hairColor = '#ffd700';
 
+    // Тело (Коричневая туника)
     drawPixelRect(ctx, x + px * 6, y + px * 10 + bounce, px * 12, px * 18, tunicColor);
-    drawPixelRect(ctx, x + px * 7, y + px * 11 + bounce, px * 10, px * 6, '#7d4e24'); 
+    drawPixelRect(ctx, x + px * 7, y + px * 11 + bounce, px * 10, px * 6, '#7d4e24'); // Тень на тунике
     
+    // Рукава (Оранжевые)
     drawPixelRect(ctx, x + px * 4, y + px * 12 + bounce, px * 4, px * 8, shirtColor);
     drawPixelRect(ctx, x + px * 16, y + px * 12 + bounce, px * 4, px * 8, shirtColor);
 
+    // Кисти рук
     const armCycle = time * 0.25;
     const armOff = Math.sin(armCycle) * 6;
     drawPixelRect(ctx, x + px * 2, y + px * 18 + bounce + armOff, px * 4, px * 4, skinColor);
     drawPixelRect(ctx, x + px * 18, y + px * 18 + bounce - armOff, px * 4, px * 4, skinColor);
 
+    // Голова
     const headY = y + px * 2 + bounce;
-    drawPixelRect(ctx, x + px * 7, headY, px * 10, px * 7, hairColor);
-    drawPixelRect(ctx, x + px * 14, headY - px * 2, px * 4, px * 4, '#e6c200');
-    drawPixelRect(ctx, x + px * 8, headY + px * 5, px * 8, px * 8, skinColor);
-    drawPixelRect(ctx, x + px * 12, headY + px * 8, px * 2, px * 2, '#2d1c19');
+    drawPixelRect(ctx, x + px * 7, headY, px * 10, px * 7, hairColor); // Волосы
+    drawPixelRect(ctx, x + px * 14, headY - px * 2, px * 4, px * 4, '#e6c200'); // Блик на волосах
+    drawPixelRect(ctx, x + px * 8, headY + px * 5, px * 8, px * 8, skinColor); // Лицо
+    drawPixelRect(ctx, x + px * 12, headY + px * 8, px * 2, px * 2, '#2d1c19'); // Глаз
     
     ctx.restore();
   };
@@ -194,6 +206,7 @@ const GameCanvas: React.FC = () => {
     const time = gameRef.current.frameCount;
     drawPixelRect(ctx, m.x, m.y, m.width, m.height, '#5c242c');
     drawPixelRect(ctx, m.x + px, m.y + px, m.width - px*2, m.height - px*2, '#833440');
+    // Глазки-отростки
     for (let i = 0; i < 4; i++) {
       const sx = m.x + (i * 12) + 4;
       const wave = Math.sin(time * 0.1 + i) * 6;
@@ -201,6 +214,7 @@ const GameCanvas: React.FC = () => {
       drawPixelRect(ctx, sx, sy, 6, 12, '#5c242c');
       drawPixelRect(ctx, sx + 1, sy - 3, 4, 4, '#ff0000');
     }
+    // Центральный глаз
     drawPixelRect(ctx, m.x + px*4, m.y + px*4, m.width - px*8, m.height - px*8, '#FFFFFF');
     const eyeY = Math.sin(time * 0.08) * 4;
     const eyeX = Math.cos(time * 0.05) * 3;
@@ -245,7 +259,9 @@ const GameCanvas: React.FC = () => {
           username: telegramUser?.username || telegramUser?.first_name,
         }),
       });
-    } catch (err) {}
+    } catch (err) {
+      // Молчаливо игнорируем ошибки отправки, чтобы не прерывать игру
+    }
   }, [telegramUser]);
 
   const update = useCallback(() => {
