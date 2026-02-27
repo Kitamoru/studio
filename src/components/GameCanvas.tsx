@@ -14,7 +14,7 @@ const INITIAL_MONSTER_SPEED = 5.0;
 
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const playerImgRef = useRef<HTMLImageElement>(null);
+  const playerImgRef = useRef<HTMLImageElement | null>(null);
   const [gameState, setGameState] = useState<GameState>('START');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -41,6 +41,7 @@ const GameCanvas: React.FC = () => {
     frameCount: 0,
   });
 
+  // Инициализация Telegram WebApp
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -52,6 +53,25 @@ const GameCanvas: React.FC = () => {
     }
   }, []);
 
+  // Загрузка спрайта героя
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/prince.gif';
+    
+    img.onload = () => {
+      console.log("Спрайт prince.gif успешно загружен!");
+      playerImgRef.current = img;
+      setIsImageLoaded(true);
+      setLoadError(false);
+    };
+
+    img.onerror = () => {
+      console.error("Не удалось загрузить /prince.gif. Проверьте путь: public/prince.gif");
+      setLoadError(true);
+      setIsImageLoaded(true); // Завершаем экран загрузки даже при ошибке
+    };
+  }, []);
+
   const drawPixelRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) => {
     ctx.fillStyle = color;
     ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
@@ -61,6 +81,7 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
+    // Дальние стены (параллакс)
     const p1 = offset * 0.3;
     const brickW = 80;
     const brickH = 40;
@@ -73,6 +94,7 @@ const GameCanvas: React.FC = () => {
       }
     }
 
+    // Колонны и факелы
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
@@ -94,6 +116,7 @@ const GameCanvas: React.FC = () => {
       ctx.shadowBlur = 0;
     }
 
+    // Пол
     const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, VIRTUAL_HEIGHT);
     groundGrad.addColorStop(0, '#2d2738');
     groundGrad.addColorStop(1, '#0a080d');
@@ -104,20 +127,29 @@ const GameCanvas: React.FC = () => {
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
     const { x, y, width, height } = player;
 
-    if (isImageLoaded && playerImgRef.current && !loadError) {
+    if (!loadError && playerImgRef.current) {
+      // Рисуем спрайт из файла
       ctx.drawImage(playerImgRef.current, Math.floor(x), Math.floor(y), width, height);
     } else {
+      // Запасной вариант (Программный Принц), если файл не найден
       const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
       const jumpOffset = player.isJumping ? -5 : 0;
       
+      // Плащ (фиолетовый)
       ctx.fillStyle = '#6226B3';
-      ctx.fillRect(x - 4, y + 16 + walk/2, 20, 24);
+      const wave = Math.sin(gameRef.current.frameCount * 0.1) * 3;
+      ctx.fillRect(x - 8, y + 16 + walk/2 + wave, 24, 28);
       
-      drawPixelRect(ctx, x + 10, y + 12 + walk + jumpOffset, 24, 28, '#4a2c1d'); 
+      // Тело (коричневое)
+      drawPixelRect(ctx, x + 8, y + 12 + walk + jumpOffset, 28, 30, '#4a2c1d'); 
+      // Рубашка (оранжевая)
+      drawPixelRect(ctx, x + 12, y + 14 + walk + jumpOffset, 20, 10, '#ff8c00');
+      // Голова/Волосы
       drawPixelRect(ctx, x + 14, y + 4 + walk + jumpOffset, 16, 16, '#f0d0a0'); 
       drawPixelRect(ctx, x + 12, y + 2 + walk + jumpOffset, 20, 8, '#d4af37');  
     }
 
+    // Тень
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -149,7 +181,9 @@ const GameCanvas: React.FC = () => {
           username: telegramUser?.username || telegramUser?.first_name,
         }),
       });
-    } catch (err) {}
+    } catch (err) {
+      console.error("Ошибка сохранения счета:", err);
+    }
   }, [telegramUser]);
 
   const update = useCallback(() => {
@@ -225,24 +259,27 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
     
-    if (!isImageLoaded && !loadError) {
+    // Экран загрузки
+    if (!isImageLoaded) {
       ctx.fillStyle = 'rgba(0,0,0,0.95)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       ctx.fillStyle = '#6226B3';
       ctx.font = '24px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ЗАГРУЗКА...', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+      ctx.fillText('ЗАГРУЗКА РЕСУРСОВ...', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
       return;
     }
 
     gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
     drawHero(ctx, gameRef.current.player);
 
-    if (loadError) {
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+    // Подсказка об ошибке (только в режиме ожидания или старта)
+    if (loadError && gameRef.current.state !== 'PLAYING') {
+      ctx.fillStyle = 'rgba(255, 68, 68, 0.9)';
       ctx.font = '10px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ОШИБКА: prince.gif НЕ НАЙДЕН В /public/', VIRTUAL_WIDTH / 2, 40);
+      ctx.fillText('ВНИМАНИЕ: ФАЙЛ /public/prince.gif НЕ НАЙДЕН', VIRTUAL_WIDTH / 2, 40);
+      ctx.fillText('ИСПОЛЬЗУЕТСЯ ЗАПАСНОЙ ГЕРОЙ', VIRTUAL_WIDTH / 2, 60);
     }
 
     if (gameRef.current.state === 'START') {
@@ -297,30 +334,18 @@ const GameCanvas: React.FC = () => {
   };
 
   useEffect(() => {
-    const kd = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); handleInput(); } };
+    const kd = (e: KeyboardEvent) => { 
+      if (e.code === 'Space') { 
+        e.preventDefault(); 
+        handleInput(); 
+      } 
+    };
     window.addEventListener('keydown', kd);
     return () => window.removeEventListener('keydown', kd);
-  }, [gameState]);
+  }, []);
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 gap-6">
-      <img 
-        ref={playerImgRef}
-        src="/prince.gif" 
-        alt="player" 
-        className="hidden" 
-        onLoad={() => {
-          console.log("Prince.gif успешно загружен!");
-          setIsImageLoaded(true);
-          setLoadError(false);
-        }}
-        onError={(e) => {
-          console.error("Файл /prince.gif не найден. Проверьте папку public/.", e);
-          setLoadError(true);
-          setIsImageLoaded(true); 
-        }}
-      />
-
       <div 
         className="relative w-full aspect-[2/1] bg-[#0f0d12] border-4 border-[#2d2738] overflow-hidden cursor-pointer shadow-[0_0_60px_rgba(98,38,179,0.35)]"
         onClick={handleInput}
