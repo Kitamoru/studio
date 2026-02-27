@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -89,6 +90,7 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Initialize ambient dust particles
     gameRef.current.ambientParticles = [];
     for (let i = 0; i < 40; i++) {
       gameRef.current.ambientParticles.push({
@@ -134,31 +136,26 @@ const GameCanvas: React.FC = () => {
       const hover = Math.sin(time * 0.003) * 5;
       const dy = y + hover;
 
-      // Тело дракона
       const bodyGrad = ctx.createLinearGradient(x, dy, x + width, dy + height);
       bodyGrad.addColorStop(0, '#991B1B');
       bodyGrad.addColorStop(1, '#450A0A');
       ctx.fillStyle = bodyGrad;
       
-      // Хвост
       ctx.beginPath();
       ctx.moveTo(x + width - 20, dy + height/2);
       ctx.quadraticCurveTo(x + width + 40, dy + height/2 + Math.sin(time*0.004)*30, x + width + 20, dy + height - 10);
       ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 12; ctx.stroke();
 
-      // Крылья (Верхний слой)
       ctx.fillStyle = '#450A0A';
       ctx.beginPath();
       ctx.moveTo(x + width/2, dy + 30);
       ctx.quadraticCurveTo(x + width + 60, dy - 40 - flap, x + width, dy + 60);
       ctx.fill();
 
-      // Основное тело (скругленный прямоугольник)
       ctx.beginPath();
       ctx.roundRect(x + 20, dy + 20, width - 40, height - 30, 20);
       ctx.fill();
 
-      // Шипы на спине
       ctx.fillStyle = '#260404';
       for(let i=0; i<4; i++) {
         ctx.beginPath();
@@ -168,18 +165,15 @@ const GameCanvas: React.FC = () => {
         ctx.fill();
       }
 
-      // Голова
       ctx.fillStyle = '#7F1D1D';
       ctx.beginPath();
       ctx.roundRect(x - 5, dy + 5, 50, 40, [15, 5, 5, 15]);
       ctx.fill();
 
-      // Рога
       ctx.fillStyle = '#1A0202';
       ctx.beginPath(); ctx.moveTo(x+10, dy+5); ctx.lineTo(x, dy-10); ctx.lineTo(x+20, dy+5); ctx.fill();
       ctx.beginPath(); ctx.moveTo(x+25, dy+5); ctx.lineTo(x+15, dy-10); ctx.lineTo(x+35, dy+5); ctx.fill();
 
-      // Светящийся глаз
       const eyeGlow = ctx.createRadialGradient(x+10, dy+20, 0, x+10, dy+20, 10);
       eyeGlow.addColorStop(0, '#FDE047');
       eyeGlow.addColorStop(1, 'transparent');
@@ -187,7 +181,6 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.arc(x+10, dy+20, 10, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#000'; ctx.fillRect(x+8, dy+18, 4, 4);
 
-      // Магическое пламя
       const fireLen = 30 + Math.random() * 30;
       const fireGrad = ctx.createLinearGradient(x, dy + 25, x - fireLen, dy + 30);
       fireGrad.addColorStop(0, '#F59E0B');
@@ -202,19 +195,15 @@ const GameCanvas: React.FC = () => {
 
     } else if (type === 'OGRE') {
       const walk = Math.sin(time * 0.008) * 5;
-      // Тело
       ctx.fillStyle = '#166534';
       ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 12); ctx.fill();
-      // Наплечник
       ctx.fillStyle = '#422006';
       ctx.beginPath(); ctx.roundRect(x + 2, y + 10, 25, 20, 6); ctx.fill();
-      // Голова с клыками
       ctx.fillStyle = '#14532D';
       ctx.beginPath(); ctx.roundRect(x + 15, y, 35, 30, 8); ctx.fill();
       ctx.fillStyle = 'white';
       ctx.fillRect(x + 20, y + 22, 4, 6); ctx.fillRect(x + 40, y + 22, 4, 6);
       
-      // Шипованная дубина
       ctx.save();
       const clubSwing = Math.sin(time * 0.006) * 0.7;
       ctx.translate(x + width - 10, y + 45);
@@ -223,7 +212,6 @@ const GameCanvas: React.FC = () => {
       ctx.fillRect(0, -30, 16, 50);
       ctx.fillStyle = '#713F12';
       ctx.beginPath(); ctx.arc(8, -30, 16, 0, Math.PI*2); ctx.fill();
-      // Шипы на дубине
       ctx.fillStyle = '#94A3B8';
       for(let i=0; i<5; i++) {
         const ang = (i * Math.PI * 2) / 5;
@@ -236,20 +224,16 @@ const GameCanvas: React.FC = () => {
 
     } else if (type === 'MIMIC') {
       const snap = Math.sin(time * 0.015) * 8;
-      // Сундук
       ctx.fillStyle = '#261102';
       ctx.beginPath(); ctx.roundRect(x, y + 10, width, height - 10, 4); ctx.fill();
-      // Текстура дерева
       ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 1;
       for(let i=1; i<4; i++) {
         ctx.beginPath(); ctx.moveTo(x + i*12, y + 10); ctx.lineTo(x + i*12, y + height); ctx.stroke();
       }
-      // Оковка
       ctx.fillStyle = '#A16207';
       ctx.fillRect(x, y + 10, 6, height - 10);
       ctx.fillRect(x + width - 6, y + 10, 6, height - 10);
       
-      // Жуткие глаза в щели
       ctx.fillStyle = '#EAB308';
       for(let i=0; i<3; i++) {
         ctx.beginPath(); ctx.arc(x + 10 + i*12, y + 22 + Math.sin(time*0.01+i)*4, 3, 0, Math.PI*2); ctx.fill();
@@ -257,14 +241,12 @@ const GameCanvas: React.FC = () => {
         ctx.fillStyle = '#EAB308';
       }
 
-      // Длинный язык
       ctx.fillStyle = '#BE123C';
       ctx.beginPath();
       ctx.moveTo(x + width/2 - 5, y + 25);
       ctx.quadraticCurveTo(x + width + 25 + snap, y + 10 + Math.sin(time*0.015)*20, x + width/2 + 5, y + 40);
       ctx.fill();
 
-      // Зубы
       ctx.fillStyle = '#f8fafc';
       for(let i=0; i<6; i++) {
         const tx = x + 4 + i*7;
@@ -272,16 +254,15 @@ const GameCanvas: React.FC = () => {
       }
     } else if (type === 'SLIME') {
       const wobble = Math.sin(time * 0.01) * 8;
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.4)'; // Полупрозрачное тело
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.4)'; 
       ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(21, 128, 61, 0.8)'; // Ядро
+      ctx.fillStyle = 'rgba(21, 128, 61, 0.8)'; 
       ctx.beginPath(); ctx.arc(x + width/2, y + height - 15, 8, 0, Math.PI*2); ctx.fill();
     } else if (type === 'BEHOLDER') {
       const float = Math.sin(time * 0.005) * 12;
       const fy = y + float;
       ctx.fillStyle = '#6D102A';
       ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
-      // Стебельки глаз
       for(let i = 0; i < 6; i++) {
         const angle = (i * Math.PI * 2) / 6 + time * 0.002;
         const sX = x + width/2 + Math.cos(angle) * (width/2);
@@ -293,7 +274,6 @@ const GameCanvas: React.FC = () => {
         ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(eX, eY, 6, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(eX, eY, 3, 0, Math.PI*2); ctx.fill();
       }
-      // Центральный глаз
       ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.003)*5, fy + height/2 + Math.sin(time*0.003)*3, 6, 0, Math.PI * 2); ctx.fill();
     } else if (type === 'GHOST') {
@@ -305,7 +285,7 @@ const GameCanvas: React.FC = () => {
       ctx.bezierCurveTo(x + width + 10, y + float, x + width + 10, y + height + float, x + width/2, y + height + 20 + float);
       ctx.bezierCurveTo(x - 10, y + height + float, x - 10, y + float, x + width/2, y + float);
       ctx.fill();
-      ctx.fillStyle = '#6366F1'; // Светящиеся глаза
+      ctx.fillStyle = '#6366F1'; 
       ctx.beginPath(); ctx.arc(x + width/2 - 10, y + 25 + float, 4, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(x + width/2 + 10, y + 25 + float, 4, 0, Math.PI*2); ctx.fill();
     } else if (type === 'BAT') {
@@ -320,7 +300,7 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
-    // Частицы пыли в воздухе
+    // 1. Ambient particles (Dust)
     gameRef.current.ambientParticles.forEach(p => {
       ctx.fillStyle = '#EAB308';
       ctx.globalAlpha = p.opacity;
@@ -330,19 +310,19 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
-    // Каменные арки и колонны
+    // 2. Distant Arches & Pillars (Parallax Layer 0)
     let offsetArch = gameRef.current.parallax[0] % 600;
     for (let x = -offsetArch; x < VIRTUAL_WIDTH + 600; x += 600) {
-      // Стены за арками
+      // Wall behind arches
       ctx.fillStyle = '#0D0B12';
       ctx.fillRect(x, 0, 600, GROUND_Y);
 
-      // Колонны
+      // Columns
       ctx.fillStyle = '#1A1621';
       ctx.fillRect(x + 50, 0, 60, GROUND_Y);
       ctx.fillRect(x + 490, 0, 60, GROUND_Y);
 
-      // Верхняя часть арки
+      // Arch Top
       ctx.beginPath();
       ctx.ellipse(x + 300, 150, 250, 120, 0, Math.PI, 0, true);
       ctx.lineTo(x + 550, 0);
@@ -350,7 +330,7 @@ const GameCanvas: React.FC = () => {
       ctx.closePath();
       ctx.fill();
 
-      // Текстура камня
+      // Stone texture / lines
       ctx.strokeStyle = '#25202D';
       ctx.lineWidth = 1;
       for(let i=0; i<10; i++) {
@@ -358,21 +338,24 @@ const GameCanvas: React.FC = () => {
         ctx.beginPath(); ctx.moveTo(x+490, i*80); ctx.lineTo(x+550, i*80); ctx.stroke();
       }
 
-      // Факелы на колоннах
+      // Torches on columns
       const torchX1 = x + 80;
       const torchX2 = x + 520;
       [torchX1, torchX2].forEach(tx => {
         const ty = 350;
         const flicker = Math.random() * 6;
         const grad = ctx.createRadialGradient(tx, ty, 0, tx, ty, 35 + flicker);
-        grad.addColorStop(0, 'rgba(245, 158, 11, 0.3)'); grad.addColorStop(1, 'rgba(234, 179, 8, 0)');
-        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(tx, ty, 35 + flicker, 0, Math.PI * 2); ctx.fill();
+        grad.addColorStop(0, 'rgba(245, 158, 11, 0.3)'); 
+        grad.addColorStop(1, 'rgba(234, 179, 8, 0)');
+        ctx.fillStyle = grad; 
+        ctx.beginPath(); ctx.arc(tx, ty, 35 + flicker, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#422006'; ctx.fillRect(tx - 3, ty + 10, 6, 25);
-        ctx.fillStyle = '#F59E0B'; ctx.beginPath(); ctx.moveTo(tx-5, ty+10); ctx.quadraticCurveTo(tx, ty-10-flicker, tx+5, ty+10); ctx.fill();
+        ctx.fillStyle = '#F59E0B'; 
+        ctx.beginPath(); ctx.moveTo(tx-5, ty+10); ctx.quadraticCurveTo(tx, ty-10-flicker, tx+5, ty+10); ctx.fill();
       });
     }
 
-    // Пол
+    // 3. Ground (Parallax Layer 2)
     ctx.fillStyle = '#0A080D';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
     let offset2 = gameRef.current.parallax[2] % 80;
@@ -380,7 +363,7 @@ const GameCanvas: React.FC = () => {
     for (let x = -offset2; x < VIRTUAL_WIDTH + 80; x += 80) {
       ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.lineTo(x, VIRTUAL_HEIGHT); ctx.stroke();
     }
-    // Камни на полу
+    // Stones on the floor
     ctx.fillStyle = '#1A1621';
     for(let i=0; i<15; i++) {
       const rx = (i * 120 + gameRef.current.parallax[2] * 0.8) % (VIRTUAL_WIDTH + 100) - 50;
@@ -455,11 +438,9 @@ const GameCanvas: React.FC = () => {
         player.jumpsRemaining = player.maxJumps;
       }
 
-      // Пассивная способность Мага: Бонус к очкам
       const scoreMultiplier = selectedClass?.name === 'WIZARD' ? 1.25 : 1.0;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1 * scoreMultiplier;
 
-      // Пассивная способность Барда: Регенерация
       if (selectedClass?.name === 'BARD' && timestamp - lastRegenRef.current > 20000) {
         if (hp < maxHp) {
           heal(1);
