@@ -14,11 +14,12 @@ const INITIAL_MONSTER_SPEED = 5.0;
 
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const playerImgRef = useRef<HTMLImageElement>(null);
   const [gameState, setGameState] = useState<GameState>('START');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
-  const [playerImage, setPlayerImage] = useState<HTMLImageElement | null>(null);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   const gameRef = useRef({
     player: { 
@@ -38,19 +39,6 @@ const GameCanvas: React.FC = () => {
     state: 'START' as GameState,
     frameCount: 0,
   });
-
-  // Загрузка нового ассета prince.gif из папки public/
-  useEffect(() => {
-    const img = new Image();
-    img.src = '/prince.gif';
-    img.onload = () => {
-      console.log('Ассет prince.gif успешно загружен');
-      setPlayerImage(img);
-    };
-    img.onerror = () => {
-      console.warn('Файл prince.gif не найден в /public/. Убедитесь, что вы правильно разместили файл.');
-    };
-  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
@@ -85,7 +73,7 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Колонны и факелы на кронштейнах
+    // Колонны и факелы
     const p2 = offset * 0.6;
     const pillarSpacing = 300;
     for (let x = -(p2 % pillarSpacing); x < VIRTUAL_WIDTH + pillarSpacing; x += pillarSpacing) {
@@ -94,9 +82,8 @@ const GameCanvas: React.FC = () => {
       const torchY = 160;
       const bracketX = x + 30;
       
-      // Кронштейн факела (кованое железо)
-      drawPixelRect(ctx, bracketX - 8, torchY + 12, 16, 20, '#110e14'); // Основание
-      drawPixelRect(ctx, bracketX - 4, torchY + 6, 26, 6, '#1a1621'); // Держатель
+      drawPixelRect(ctx, bracketX - 8, torchY + 12, 16, 20, '#110e14'); 
+      drawPixelRect(ctx, bracketX - 4, torchY + 6, 26, 6, '#1a1621'); 
       
       const flicker = Math.sin(frameCount * 0.15) * 4;
       const flameX = bracketX + 22;
@@ -104,8 +91,8 @@ const GameCanvas: React.FC = () => {
       
       ctx.shadowBlur = 25 + flicker;
       ctx.shadowColor = 'rgba(255, 120, 0, 0.7)';
-      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); // Пламя внешнее
-      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); // Сердце пламени
+      drawPixelRect(ctx, flameX - 4, flameY, 16, 24, '#ff4500'); 
+      drawPixelRect(ctx, flameX - 2, flameY + 4, 12, 18, '#ff8c00'); 
       ctx.shadowBlur = 0;
     }
 
@@ -119,17 +106,19 @@ const GameCanvas: React.FC = () => {
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
     const { x, y, width, height } = player;
 
-    if (playerImage) {
-      // Отрисовка вашего GIF с масштабированием до 48x48
-      ctx.drawImage(playerImage, Math.floor(x), Math.floor(y), width, height);
+    if (isImageLoaded && playerImgRef.current) {
+      // Рисуем ваш prince.gif. Canvas может рисовать GIF, но иногда только первый кадр.
+      // Использование <img> из DOM помогает браузеру анимировать его.
+      ctx.drawImage(playerImgRef.current, Math.floor(x), Math.floor(y), width, height);
     } else {
-      // Заглушка, пока prince.gif грузится или если он не найден
+      // Временный герой, если гифка не загрузилась (цвета из вашего спрайта)
       const walk = Math.sin(gameRef.current.frameCount * 0.2) * 2;
-      drawPixelRect(ctx, x + 8, y + walk, 32, 40, '#3a2115'); // Тело
-      drawPixelRect(ctx, x + 12, y + walk - 12, 24, 24, '#f0d0a0'); // Голова
+      drawPixelRect(ctx, x + 8, y + walk, 32, 40, '#3a2115'); // Туника
+      drawPixelRect(ctx, x + 12, y + walk - 12, 24, 24, '#f0d0a0'); // Лицо
+      drawPixelRect(ctx, x - 4, y + walk + 4, 16, 28, '#6226B3'); // Плащ
     }
 
-    // Тень под ногами
+    // Тень
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -168,7 +157,7 @@ const GameCanvas: React.FC = () => {
     const { player, monsters, state, lastSpawn, frameCount } = gameRef.current;
     if (state !== 'PLAYING') return;
 
-    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 60);
+    const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 100);
     gameRef.current.bgOffset += currentSpeed;
 
     player.vy += GRAVITY;
@@ -182,7 +171,7 @@ const GameCanvas: React.FC = () => {
       player.jumpsRemaining = 2;
     }
 
-    const spawnRate = Math.max(40, 130 - (gameRef.current.score / 15));
+    const spawnRate = Math.max(40, 130 - (gameRef.current.score / 20));
     if (frameCount - lastSpawn > spawnRate + Math.random() * 60) {
       const type: MonsterType = Math.random() > 0.5 ? 'BEHOLDER' : 'MIMIC';
       const mY = type === 'BEHOLDER' ? GROUND_Y - 130 : GROUND_Y - 48;
@@ -261,7 +250,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText('НАЖМИТЕ, ЧТОБЫ ПОВТОРИТЬ', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 + 30);
     }
-  }, [playerImage]);
+  }, [isImageLoaded]);
 
   useEffect(() => {
     let aid: number;
@@ -300,6 +289,16 @@ const GameCanvas: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 gap-6">
+      {/* Скрытый элемент для загрузки спрайта */}
+      <img 
+        ref={playerImgRef}
+        src="/prince.gif" 
+        alt="player" 
+        className="hidden" 
+        onLoad={() => setIsImageLoaded(true)}
+        onError={() => console.error("Не удалось загрузить /prince.gif. Убедитесь, что файл в папке public/")}
+      />
+
       <div 
         className="relative w-full aspect-[2/1] bg-[#0f0d12] border-4 border-[#2d2738] overflow-hidden cursor-pointer shadow-[0_0_60px_rgba(98,38,179,0.35)]"
         onClick={handleInput}
