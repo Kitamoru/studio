@@ -39,15 +39,12 @@ const GameCanvas: React.FC = () => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [invulnerableUntil, setInvulnerableUntil] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
-  
-  // Состояние реальных размеров холста
-  const [dimensions, setDimensions] = useState({ width: 800, height: 450 });
+  const [dimensions, setDimensions] = useState({ width: 450, height: 800 });
 
   const VIRTUAL_WIDTH = dimensions.width;
   const VIRTUAL_HEIGHT = dimensions.height;
   const GROUND_Y = VIRTUAL_HEIGHT - 100;
-  const PLAYER_X = 80;
+  const PLAYER_X = 60;
   const GRAVITY = 0.65;
   const JUMP_STRENGTH = -14;
 
@@ -78,17 +75,15 @@ const GameCanvas: React.FC = () => {
     collisionCooldown: 0,
   });
 
-  // Отслеживание размеров и ориентации
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
-        const width = containerRef.current.clientWidth;
-        const height = containerRef.current.clientHeight;
-        setDimensions({ width, height });
-        setIsLandscape(width > height);
+        setDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
       }
     };
-
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
@@ -111,8 +106,8 @@ const GameCanvas: React.FC = () => {
     gameRef.current.ambientParticles = [];
     for (let i = 0; i < 40; i++) {
       gameRef.current.ambientParticles.push({
-        x: Math.random() * 1200, 
-        y: Math.random() * 1200,
+        x: Math.random() * 800, 
+        y: Math.random() * 800,
         speed: 0.2 + Math.random() * 0.5,
         size: 1 + Math.random() * 2,
         opacity: 0.1 + Math.random() * 0.4
@@ -199,13 +194,26 @@ const GameCanvas: React.FC = () => {
       ctx.fillRect(x + width/2 - 4, y + height/2 - 4, 8, 8);
     } else if (type === 'OGRE') {
       ctx.fillStyle = '#14532D';
-      ctx.fillRect(x + 10, y + 10, width - 20, height - 10); // Body
+      ctx.fillRect(x + 10, y + 10, width - 20, height - 10);
       ctx.fillStyle = '#3F6212';
-      ctx.fillRect(x + 20, y, 20, 20); // Head
+      ctx.fillRect(x + 20, y, 20, 20);
       ctx.fillStyle = '#422006';
-      ctx.fillRect(x - 5, y + 20, 15, 40); // Club
-    } else {
+      ctx.fillRect(x - 5, y + 20, 15, 40);
+    } else if (type === 'GHOST') {
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.6)';
+      ctx.beginPath();
+      ctx.moveTo(x + width/2, y);
+      ctx.quadraticCurveTo(x + width, y + height/4, x + width, y + height/2);
+      ctx.lineTo(x + width, y + height);
+      ctx.lineTo(x, y + height);
+      ctx.lineTo(x, y + height/2);
+      ctx.quadraticCurveTo(x, y + height/4, x + width/2, y);
+      ctx.fill();
       ctx.fillStyle = '#333';
+      ctx.fillRect(x + 10, y + 15, 4, 4);
+      ctx.fillRect(x + width - 14, y + 15, 4, 4);
+    } else {
+      ctx.fillStyle = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS]?.color || '#333';
       ctx.fillRect(x, y, width, height);
     }
     
@@ -266,30 +274,28 @@ const GameCanvas: React.FC = () => {
 
     drawBackground(ctx);
 
-    if (gameState === 'PLAYING' || gameState === 'GAME_OVER' || gameState === 'START') {
-      gameRef.current.particles.forEach((p, i) => {
-        ctx.globalAlpha = p.life;
-        ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, 4, 4);
-        p.x += p.vx; p.y += p.vy; p.life -= 0.03;
-        if (p.life <= 0) gameRef.current.particles.splice(i, 1);
-      });
-      ctx.globalAlpha = 1.0;
+    gameRef.current.particles.forEach((p, i) => {
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, 4, 4);
+      p.x += p.vx; p.y += p.vy; p.life -= 0.03;
+      if (p.life <= 0) gameRef.current.particles.splice(i, 1);
+    });
+    ctx.globalAlpha = 1.0;
 
-      gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
-      
-      const p = gameRef.current.player;
-      const isInvul = Date.now() < invulnerableUntil;
-      if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
-        if (playerImgRef.current) {
-          ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
-          if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.y < GROUND_Y - p.height - 20) {
-            ctx.save();
-            ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.01) * 0.1;
-            ctx.fillStyle = '#A855F7';
-            ctx.beginPath(); ctx.arc(p.x + p.width/2, p.y + p.height/2, 45, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-          }
+    gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
+    
+    const p = gameRef.current.player;
+    const isInvul = Date.now() < invulnerableUntil;
+    if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
+      if (playerImgRef.current) {
+        ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
+        if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.y < GROUND_Y - p.height - 20) {
+          ctx.save();
+          ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.01) * 0.1;
+          ctx.fillStyle = '#A855F7';
+          ctx.beginPath(); ctx.arc(p.x + p.width/2, p.y + p.height/2, 45, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
         }
       }
     }
@@ -427,10 +433,7 @@ const GameCanvas: React.FC = () => {
   }
 
   return (
-    <div className={cn(
-      "w-full h-screen flex select-none overflow-hidden touch-none relative bg-[#050406]",
-      isLandscape ? "flex-row" : "flex-col"
-    )}>
+    <div className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]">
       {gameState === 'CLASS_SELECTION' && (
         <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
           <h2 className="text-xl text-primary mb-8 uppercase glow-text">ВЫБЕРИТЕ КЛАСС</h2>
@@ -457,15 +460,15 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Основная зона */}
+      {/* Игровая зона 2/3 */}
       <div 
         ref={containerRef}
         className={cn(
-          "relative flex-1 flex flex-col overflow-hidden",
-          isLandscape ? "h-full w-full" : "h-[66vh] w-full"
+          "relative w-full h-[66vh] cursor-pointer overflow-hidden bg-black",
+          isShaking && "animate-shake"
         )}
+        onClick={handleInput}
       >
-        {/* Верхняя панель UI */}
         {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
           <div className="absolute top-0 left-0 right-0 h-[6vh] flex justify-between items-center bg-[#0D0B12]/60 p-3 px-6 backdrop-blur-sm z-10">
             <div className="flex gap-1.5">
@@ -480,48 +483,38 @@ const GameCanvas: React.FC = () => {
           </div>
         )}
 
-        <div 
-          className={cn(
-            "relative w-full h-full cursor-pointer bg-black",
-            isShaking && "animate-shake"
-          )}
-          onClick={handleInput}
-        >
-          <canvas 
-            ref={canvasRef} 
-            width={VIRTUAL_WIDTH} 
-            height={VIRTUAL_HEIGHT} 
-            className="image-pixelated w-full h-full block" 
-          />
-          
-          {gameState === 'GAME_OVER' && (
-            <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center p-4 animate-in zoom-in">
-              <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
-              <p className="text-[10px] text-white mb-6 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
-              <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase active:scale-90 transition-transform shadow-[0_4px_0_#4D1091]">
-                ПОПРОБОВАТЬ СНОВА
-              </button>
-            </div>
-          )}
-        </div>
+        <canvas 
+          ref={canvasRef} 
+          width={VIRTUAL_WIDTH} 
+          height={VIRTUAL_HEIGHT} 
+          className="image-pixelated w-full h-full block" 
+        />
+        
+        {gameState === 'GAME_OVER' && (
+          <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center p-4 animate-in zoom-in">
+            <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
+            <p className="text-[10px] text-white mb-6 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
+            <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase active:scale-90 transition-transform shadow-[0_4px_0_#4D1091]">
+              ПОПРОБОВАТЬ СНОВА
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Лог боя */}
-      {gameState === 'PLAYING' && !isLandscape && (
-        <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide">
-          {combatLog.map((log) => (
-            <div key={log.id} className={cn(
-              "text-[8px] uppercase flex items-center gap-2 animate-in slide-in-from-left-2",
-              log.type === 'success' ? 'text-green-400' : 
-              log.type === 'fail' ? 'text-red-400' : 
-              log.type === 'critical' ? 'text-accent font-bold' : 'text-gray-500'
-            )}>
-              <Sword size={10} /> {log.text}
-            </div>
-          ))}
-          <div ref={logEndRef} />
-        </div>
-      )}
+      {/* Лог боя 1/3 */}
+      <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 scrollbar-hide">
+        {combatLog.map((log) => (
+          <div key={log.id} className={cn(
+            "text-[8px] uppercase flex items-center gap-2 animate-in slide-in-from-left-2",
+            log.type === 'success' ? 'text-green-400' : 
+            log.type === 'fail' ? 'text-red-400' : 
+            log.type === 'critical' ? 'text-accent font-bold' : 'text-gray-500'
+          )}>
+            <Sword size={10} /> {log.text}
+          </div>
+        ))}
+        <div ref={logEndRef} />
+      </div>
     </div>
   );
 };
