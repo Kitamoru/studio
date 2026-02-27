@@ -94,7 +94,7 @@ const GameCanvas: React.FC = () => {
     img.onerror = () => setIsImageLoaded(true);
   }, []);
 
-  const createJumpEffect = (x: number, y: number) => {
+  const createJumpEffect = (x: number, y: number, color = '#6226B3') => {
     for (let i = 0; i < 12; i++) {
       gameRef.current.particles.push({
         x,
@@ -102,7 +102,7 @@ const GameCanvas: React.FC = () => {
         vx: (Math.random() - 0.5) * 6,
         vy: (Math.random() - 0.5) * 4,
         life: 1.0,
-        color: '#6226B3'
+        color
       });
     }
   };
@@ -176,9 +176,7 @@ const GameCanvas: React.FC = () => {
     } else if (type === 'BAT') {
       const flap = Math.sin(time * 0.02) * 10;
       ctx.fillStyle = '#333';
-      // Тело
       ctx.fillRect(x + width/2 - 4, y + height/2 - 4, 8, 8);
-      // Крылья
       ctx.beginPath();
       ctx.moveTo(x + width/2, y + height/2);
       ctx.lineTo(x, y + height/2 - flap);
@@ -191,9 +189,7 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
     } else if (type === 'DRAGON') {
       ctx.fillStyle = '#991B1B';
-      // Тело
       ctx.fillRect(x + 20, y + 30, width - 40, height - 40);
-      // Крылья
       const wingFlap = Math.sin(time * 0.004) * 15;
       ctx.fillStyle = '#7F1D1D';
       ctx.beginPath();
@@ -206,18 +202,17 @@ const GameCanvas: React.FC = () => {
       ctx.lineTo(x + width + 10, y - wingFlap);
       ctx.lineTo(x + width - 40, y + 60);
       ctx.fill();
-      // Голова
       ctx.fillStyle = '#991B1B';
       ctx.fillRect(x + 5, y + 10, 30, 30);
       ctx.fillStyle = '#FACC15';
-      ctx.fillRect(x + 10, y + 15, 4, 4); // Глаз
+      ctx.fillRect(x + 10, y + 15, 4, 4);
     } else if (type === 'OGRE') {
       ctx.fillStyle = '#14532D';
-      ctx.fillRect(x + 10, y + 20, width - 20, height - 20); // Тело
+      ctx.fillRect(x + 10, y + 20, width - 20, height - 20);
       ctx.fillStyle = '#3F200B';
-      ctx.fillRect(x, y, 15, 40); // Дубина
+      ctx.fillRect(x, y, 15, 40);
       ctx.fillStyle = '#14532D';
-      ctx.fillRect(x + 15, y + 5, 20, 20); // Голова
+      ctx.fillRect(x + 15, y + 5, 20, 20);
     } else if (type === 'GHOST') {
       const wave = Math.sin(time * 0.01) * 5;
       ctx.globalAlpha = 0.6;
@@ -241,9 +236,6 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
-    const time = Date.now();
-    
-    // Эмберы (искры)
     gameRef.current.ambientParticles.forEach(p => {
       ctx.fillStyle = '#EAB308';
       ctx.globalAlpha = p.opacity;
@@ -253,21 +245,14 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
-    // Слой 0: Дальние колонны и ФАКЕЛЫ
     let offset0 = gameRef.current.parallax[0] % 600;
     for (let x = -offset0; x < VIRTUAL_WIDTH + 600; x += 600) {
-      // Колонна
       ctx.fillStyle = '#0D0B12';
       ctx.fillRect(x + 200, 0, 80, VIRTUAL_HEIGHT);
-      
-      // Факел
       const torchX = x + 240;
       const torchY = 150;
-      // Палка факела
       ctx.fillStyle = '#2D1409';
       ctx.fillRect(torchX - 2, torchY, 4, 15);
-      
-      // Пламя
       const flicker = Math.random() * 5;
       const grad = ctx.createRadialGradient(torchX, torchY, 0, torchX, torchY, 20 + flicker);
       grad.addColorStop(0, '#F59E0B');
@@ -277,7 +262,6 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath();
       ctx.arc(torchX, torchY, 20 + flicker, 0, Math.PI * 2);
       ctx.fill();
-      
       ctx.fillStyle = '#F97316';
       ctx.beginPath();
       ctx.moveTo(torchX - 4, torchY);
@@ -286,7 +270,6 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
     }
 
-    // Слой 1: Средние арки
     ctx.fillStyle = '#16121D';
     let offset1 = gameRef.current.parallax[1] % 400;
     for (let x = -offset1; x < VIRTUAL_WIDTH + 400; x += 400) {
@@ -296,7 +279,6 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
     }
 
-    // Пол
     ctx.fillStyle = '#0A080D';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
     let offset2 = gameRef.current.parallax[2] % 100;
@@ -349,12 +331,13 @@ const GameCanvas: React.FC = () => {
       if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
         if (playerImgRef.current) {
           ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
-          if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.vy < 0) {
+          // Спецэффект Плута при наличии доступного прыжка в воздухе
+          if (selectedClass?.name === 'ROGUE' && p.jumpsRemaining > 0 && p.y < GROUND_Y - p.height - 20) {
             ctx.save();
-            ctx.globalAlpha = 0.3;
+            ctx.globalAlpha = 0.2 + Math.sin(Date.now() * 0.01) * 0.1;
             ctx.fillStyle = '#A855F7';
             ctx.beginPath();
-            ctx.arc(p.x + p.width/2, p.y + p.height/2, 40, 0, Math.PI * 2);
+            ctx.arc(p.x + p.width/2, p.y + p.height/2, 45, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
           }
@@ -449,19 +432,22 @@ const GameCanvas: React.FC = () => {
 
   useGameLoop(handleUpdate, true);
 
-  const startNewGame = () => {
+  const startNewGame = useCallback((cls?: any) => {
+    const currentCls = cls || selectedClass;
+    if (!currentCls) return;
+
     engineRef.current.elapsedTime = 0;
     engineRef.current.distance = 0;
     gameRef.current.monsters = [];
     gameRef.current.particles = [];
     gameRef.current.player.y = GROUND_Y - ASSET_MANIFEST.PLAYER.height;
     gameRef.current.player.vy = 0;
-    gameRef.current.player.maxJumps = selectedClass?.maxJumps || 1;
+    gameRef.current.player.maxJumps = currentCls.maxJumps || 1;
     gameRef.current.player.jumpsRemaining = gameRef.current.player.maxJumps;
     resetDnd();
     setGameState('PLAYING');
     setScore(0);
-  };
+  }, [selectedClass, resetDnd]);
 
   const handleInput = useCallback(() => {
     if (gameState === 'START' || gameState === 'GAME_OVER') {
@@ -471,7 +457,13 @@ const GameCanvas: React.FC = () => {
       if (player.jumpsRemaining > 0) {
         player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1.0);
         player.jumpsRemaining--;
-        createJumpEffect(player.x + player.width / 2, player.y + player.height);
+        // Специальный эффект для второго прыжка Плута
+        const isDoubleJump = selectedClass?.name === 'ROGUE' && player.jumpsRemaining === 0;
+        createJumpEffect(
+          player.x + player.width / 2, 
+          player.y + player.height, 
+          isDoubleJump ? '#A855F7' : '#6226B3'
+        );
       }
     }
   }, [gameState, selectedClass]);
@@ -507,7 +499,7 @@ const GameCanvas: React.FC = () => {
               return (
                 <button
                   key={key}
-                  onClick={() => { selectClass(key); startNewGame(); }}
+                  onClick={() => { selectClass(key); startNewGame(cls); }}
                   className="bg-[#1A1621] border-2 border-primary p-4 hover:bg-primary/20 hover:border-accent transition-all flex flex-col items-center gap-3 group"
                 >
                   <div className="group-hover:scale-110 transition-transform">
