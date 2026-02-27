@@ -285,7 +285,6 @@ const GameCanvas: React.FC = () => {
   }, [update, draw]);
 
   const handleInput = () => {
-    // Позволяем играть даже с ошибкой загрузки (через заглушку)
     const { player, state } = gameRef.current;
     if (state === 'START' || state === 'GAME_OVER') {
       gameRef.current.state = 'PLAYING';
@@ -321,13 +320,14 @@ const GameCanvas: React.FC = () => {
         alt="player" 
         className="hidden" 
         onLoad={() => {
+          console.log("Prince.gif успешно загружен!");
           setIsImageLoaded(true);
           setLoadError(false);
         }}
         onError={() => {
           console.error("Файл /prince.gif не найден. Убедитесь, что он лежит в папке public/");
           setLoadError(true);
-          setIsImageLoaded(true); // Позволяем зайти в игру даже с ошибкой
+          setIsImageLoaded(true); 
         }}
       />
 
