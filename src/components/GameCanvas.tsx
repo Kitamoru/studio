@@ -53,22 +53,23 @@ const GameCanvas: React.FC = () => {
     }
   }, []);
 
-  // Загрузка спрайта героя
+  // Загрузка спрайта Knight2.webp
   useEffect(() => {
     const img = new Image();
-    img.src = '/prince.gif';
+    // Пытаемся загрузить Knight2.webp из папки public
+    img.src = '/Knight2.webp';
     
     img.onload = () => {
-      console.log("Спрайт prince.gif успешно загружен!");
+      console.log("Спрайт Knight2.webp успешно загружен!");
       playerImgRef.current = img;
       setIsImageLoaded(true);
       setLoadError(false);
     };
 
     img.onerror = () => {
-      console.error("Не удалось загрузить /prince.gif. Проверьте путь: public/prince.gif");
+      console.error("Не удалось загрузить /Knight2.webp. Проверьте путь: public/Knight2.webp");
       setLoadError(true);
-      setIsImageLoaded(true); // Завершаем экран загрузки даже при ошибке
+      setIsImageLoaded(true); // Завершаем экран загрузки, чтобы показать игру с запасным героем
     };
   }, []);
 
@@ -81,7 +82,7 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#0a080d';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-    // Дальние стены (параллакс)
+    // Дальние стены
     const p1 = offset * 0.3;
     const brickW = 80;
     const brickH = 40;
@@ -128,10 +129,10 @@ const GameCanvas: React.FC = () => {
     const { x, y, width, height } = player;
 
     if (!loadError && playerImgRef.current) {
-      // Рисуем спрайт из файла
+      // Рисуем загруженный спрайт Knight2.webp
       ctx.drawImage(playerImgRef.current, Math.floor(x), Math.floor(y), width, height);
     } else {
-      // Запасной вариант (Программный Принц), если файл не найден
+      // Запасной вариант (Программный Принц)
       const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
       const jumpOffset = player.isJumping ? -5 : 0;
       
@@ -149,7 +150,7 @@ const GameCanvas: React.FC = () => {
       drawPixelRect(ctx, x + 12, y + 2 + walk + jumpOffset, 20, 8, '#d4af37');  
     }
 
-    // Тень
+    // Тень под ногами
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     const jumpHeight = (GROUND_Y - (y + height));
@@ -273,13 +274,13 @@ const GameCanvas: React.FC = () => {
     gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
     drawHero(ctx, gameRef.current.player);
 
-    // Подсказка об ошибке (только в режиме ожидания или старта)
+    // Подсказка об ошибке загрузки Knight2.webp
     if (loadError && gameRef.current.state !== 'PLAYING') {
       ctx.fillStyle = 'rgba(255, 68, 68, 0.9)';
       ctx.font = '10px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('ВНИМАНИЕ: ФАЙЛ /public/prince.gif НЕ НАЙДЕН', VIRTUAL_WIDTH / 2, 40);
-      ctx.fillText('ИСПОЛЬЗУЕТСЯ ЗАПАСНОЙ ГЕРОЙ', VIRTUAL_WIDTH / 2, 60);
+      ctx.fillText('ВНИМАНИЕ: ФАЙЛ /public/Knight2.webp НЕ НАЙДЕН', VIRTUAL_WIDTH / 2, 40);
+      ctx.fillText('ИСПОЛЬЗУЕТСЯ ЗАПАСНОЙ ПЕРСОНАЖ', VIRTUAL_WIDTH / 2, 60);
     }
 
     if (gameRef.current.state === 'START') {
