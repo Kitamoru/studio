@@ -107,14 +107,21 @@ const GameCanvas: React.FC = () => {
   const drawHero = (ctx: CanvasRenderingContext2D, player: Player) => {
     const { x, y, width, height } = player;
 
-    if (isImageLoaded && playerImgRef.current) {
+    if (isImageLoaded && playerImgRef.current && !loadError) {
       ctx.drawImage(playerImgRef.current, Math.floor(x), Math.floor(y), width, height);
     } else {
-      // Запасной вариант (спрайт-заглушка)
-      const walk = Math.sin(gameRef.current.frameCount * 0.2) * 2;
-      drawPixelRect(ctx, x + 8, y + walk, 32, 40, '#3a2115'); 
-      drawPixelRect(ctx, x + 12, y + walk - 12, 24, 24, '#f0d0a0');
-      drawPixelRect(ctx, x - 4, y + walk + 4, 16, 28, '#6226B3');
+      // Запасной вариант (Принц из геометрических фигур)
+      const walk = Math.sin(gameRef.current.frameCount * 0.2) * 4;
+      const jumpOffset = player.isJumping ? -5 : 0;
+      
+      // Плащ
+      ctx.fillStyle = '#6226B3';
+      ctx.fillRect(x - 4, y + 16 + walk/2, 20, 24);
+      
+      // Тело
+      drawPixelRect(ctx, x + 10, y + 12 + walk + jumpOffset, 24, 28, '#4a2c1d'); // Туника
+      drawPixelRect(ctx, x + 14, y + 4 + walk + jumpOffset, 16, 16, '#f0d0a0'); // Лицо
+      drawPixelRect(ctx, x + 12, y + 2 + walk + jumpOffset, 20, 8, '#d4af37');  // Волосы
     }
 
     // Тень
@@ -154,7 +161,7 @@ const GameCanvas: React.FC = () => {
 
   const update = useCallback(() => {
     const { player, monsters, state, lastSpawn, frameCount } = gameRef.current;
-    if (state !== 'PLAYING' || !isImageLoaded) return;
+    if (state !== 'PLAYING') return;
 
     const currentSpeed = INITIAL_MONSTER_SPEED + (gameRef.current.score / 100);
     gameRef.current.bgOffset += currentSpeed;
@@ -215,7 +222,7 @@ const GameCanvas: React.FC = () => {
       }
     }
     gameRef.current.frameCount++;
-  }, [highScore, submitScore, isImageLoaded]);
+  }, [highScore, submitScore]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -223,11 +230,10 @@ const GameCanvas: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Очистка и фон
     drawBackground(ctx, gameRef.current.bgOffset, gameRef.current.frameCount);
     
-    // Если ресурсы не загружены, показываем экран загрузки
-    if (!isImageLoaded) {
+    // Экран загрузки
+    if (!isImageLoaded && !loadError) {
       ctx.fillStyle = 'rgba(0,0,0,0.95)';
       ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
       
@@ -235,26 +241,19 @@ const GameCanvas: React.FC = () => {
       ctx.font = '24px "Press Start 2P"';
       ctx.textAlign = 'center';
       ctx.fillText('ЗАГРУЗКА...', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
-      
-      const barW = 200;
-      const barH = 20;
-      const bx = (VIRTUAL_WIDTH - barW) / 2;
-      const by = VIRTUAL_HEIGHT / 2 + 40;
-      
-      ctx.strokeStyle = '#6226B3';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(bx, by, barW, barH);
-      
-      if (loadError) {
-        ctx.fillStyle = '#FF4444';
-        ctx.font = '10px "Press Start 2P"';
-        ctx.fillText('ОШИБКА ЗАГРУЗКИ PRINCE.GIF', VIRTUAL_WIDTH / 2, by + 50);
-      }
       return;
     }
 
     gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
     drawHero(ctx, gameRef.current.player);
+
+    // Сообщение об ошибке, если файл не найден
+    if (loadError) {
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+      ctx.font = '10px "Press Start 2P"';
+      ctx.textAlign = 'center';
+      ctx.fillText('ФАЙЛ prince.gif НЕ НАЙДЕН В /public/', VIRTUAL_WIDTH / 2, 30);
+    }
 
     if (gameRef.current.state === 'START') {
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
@@ -286,8 +285,7 @@ const GameCanvas: React.FC = () => {
   }, [update, draw]);
 
   const handleInput = () => {
-    if (!isImageLoaded) return;
-    
+    // Позволяем играть даже с ошибкой загрузки (через заглушку)
     const { player, state } = gameRef.current;
     if (state === 'START' || state === 'GAME_OVER') {
       gameRef.current.state = 'PLAYING';
@@ -313,24 +311,23 @@ const GameCanvas: React.FC = () => {
     const kd = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); handleInput(); } };
     window.addEventListener('keydown', kd);
     return () => window.removeEventListener('keydown', kd);
-  }, [gameState, isImageLoaded]);
+  }, [gameState]);
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 gap-6">
-      {/* Скрытый загрузчик ассетов */}
       <img 
         ref={playerImgRef}
         src="/prince.gif" 
         alt="player" 
         className="hidden" 
         onLoad={() => {
-          console.log("Prince.gif загружен успешно!");
           setIsImageLoaded(true);
           setLoadError(false);
         }}
         onError={() => {
-          console.error("Критическая ошибка: файл /prince.gif не найден в папке public/");
+          console.error("Файл /prince.gif не найден. Убедитесь, что он лежит в папке public/");
           setLoadError(true);
+          setIsImageLoaded(true); // Позволяем зайти в игру даже с ошибкой
         }}
       />
 
@@ -345,7 +342,7 @@ const GameCanvas: React.FC = () => {
           className="w-full h-full object-contain image-pixelated"
         />
         
-        {isImageLoaded && gameState === 'PLAYING' && (
+        {gameState === 'PLAYING' && (
           <div className="absolute top-4 left-4 font-body text-[10px] text-primary/90 flex flex-col gap-1">
             <span>ГЛУБИНА: {score}м</span>
           </div>
