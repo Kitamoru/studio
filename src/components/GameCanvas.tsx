@@ -139,6 +139,7 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   const saveScore = useCallback(async () => {
+    console.log('saveScore called', { initData, user, scoreSaved: scoreSavedRef.current });
     if (scoreSavedRef.current || (!initData && !user)) return;
     scoreSavedRef.current = true;
 
