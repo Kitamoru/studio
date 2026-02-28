@@ -139,25 +139,24 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   const saveScore = useCallback(async () => {
-    if (scoreSavedRef.current || !initData) return;
+    if (scoreSavedRef.current || (!initData && !user)) return;
     scoreSavedRef.current = true;
 
     try {
+      const payload = initData
+        ? { initData, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null }
+        : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null };
+
       await fetch('/api/game/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          initData,
-          score: Math.floor(engineRef.current.distance),
-          characterClass: selectedClass?.name ?? null,
-        }),
+        body: JSON.stringify(payload),
       });
-      // Сигнализируем Leaderboard об обновлении
       window.dispatchEvent(new Event('game:score-saved'));
     } catch (err) {
       console.error('Failed to save score:', err);
     }
-  }, [initData, selectedClass]);
+  }, [initData, user, selectedClass]);
 
   useEffect(() => {
     if (gameState === 'GAME_OVER') {
