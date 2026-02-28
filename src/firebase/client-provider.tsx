@@ -1,3 +1,5 @@
+//src/firebase/client-provider.tsx
+
 'use client';
 
 import React, { useMemo, useEffect, type ReactNode } from 'react';
