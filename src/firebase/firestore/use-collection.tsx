@@ -1,4 +1,4 @@
-//src/firebase/firestore/use-collection/tsx
+//src/firebase/firestore/use-collection.tsx
 
 'use client';
 
