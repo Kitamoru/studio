@@ -67,6 +67,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { initData, telegramId: directTelegramId, username: directUsername, score, characterClass } = body;
 
+    console.log('POST /api/game/score body:', { 
+    hasInitData: !!initData, 
+    directTelegramId, 
+    score, 
+    characterClass 
+    });
+  
   let telegramId: number;
   let displayName: string;
 
