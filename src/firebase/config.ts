@@ -1,3 +1,5 @@
+//src/firebase/config.ts
+
 export const firebaseConfig = {
   "projectId": "studio-9287918196-37b30",
   "appId": "1:407984508781:web:c74bd53364ad8f88b59464",
