@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -9,6 +10,9 @@ import { performACCheck, CHARACTER_CLASSES } from '@/lib/dnd-logic';
 import { ASSET_MANIFEST } from '@/lib/asset-manifest';
 import { Heart, Shield, Zap, Wand2, Loader2, Sword, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
+import { Leaderboard } from './Leaderboard';
 
 interface Particle {
   x: number;
@@ -34,12 +38,16 @@ const GameCanvas: React.FC = () => {
   const playerImgRef = useRef<HTMLImageElement | null>(null);
   const { hp, maxHp, selectedClass, combatLog, selectClass, takeDamage, heal, addLog, resetDnd } = useDnd();
   
+  const firestore = useFirestore();
+  const { user } = useUser();
+  
   const [gameState, setGameState] = useState<GameStatus>('START');
   const [score, setScore] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [invulnerableUntil, setInvulnerableUntil] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
   const lastRegenRef = useRef(0);
+  const scoreSavedRef = useRef(false);
 
   const VIRTUAL_WIDTH = 450;
   const VIRTUAL_HEIGHT = 800;
@@ -109,6 +117,32 @@ const GameCanvas: React.FC = () => {
     img.onerror = () => setIsImageLoaded(true);
   }, []);
 
+  const saveScoreToFirebase = useCallback(() => {
+    if (scoreSavedRef.current || !firestore) return;
+    
+    let telegramName = 'Anonymous Hero';
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user) {
+      const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+      telegramName = tgUser.username || `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
+    }
+
+    const scoresRef = collection(firestore, 'game_scores');
+    addDocumentNonBlocking(scoresRef, {
+      score: Math.floor(engineRef.current.distance),
+      userId: user?.uid || 'anonymous',
+      username: telegramName,
+      createdAt: serverTimestamp()
+    });
+    
+    scoreSavedRef.current = true;
+  }, [firestore, user]);
+
+  useEffect(() => {
+    if (gameState === 'GAME_OVER') {
+      saveScoreToFirebase();
+    }
+  }, [gameState, saveScoreToFirebase]);
+
   const createJumpEffect = (x: number, y: number, color = '#6226B3', isSecond = false) => {
     const count = isSecond ? 15 : 10;
     const pColor = isSecond ? '#A855F7' : color;
@@ -134,21 +168,18 @@ const GameCanvas: React.FC = () => {
       const hover = Math.sin(time * 0.003) * 8;
       const dy = y + hover;
 
-      // Тело с градиентом чешуи
       const bodyGrad = ctx.createLinearGradient(x, dy, x + width, dy + height);
       bodyGrad.addColorStop(0, '#B91C1C');
       bodyGrad.addColorStop(0.5, '#7F1D1D');
       bodyGrad.addColorStop(1, '#450A0A');
       ctx.fillStyle = bodyGrad;
       
-      // Хвост с шипом
       ctx.beginPath();
       ctx.moveTo(x + width - 20, dy + height/2);
       ctx.quadraticCurveTo(x + width + 50, dy + height/2 + Math.sin(time*0.004)*40, x + width + 35, dy + height - 10);
       ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 14; ctx.stroke();
       ctx.fillStyle = '#450A0A'; ctx.beginPath(); ctx.moveTo(x+width+35, dy+height-10); ctx.lineTo(x+width+45, dy+height+5); ctx.lineTo(x+width+25, dy+height+5); ctx.fill();
 
-      // Крылья (Скелет + Перепонки)
       [ {ox: 30, sx: 1}, {ox: 10, sx: -1} ].forEach(wing => {
         ctx.save();
         ctx.translate(x + width/2 + wing.ox, dy + 40);
@@ -158,19 +189,16 @@ const GameCanvas: React.FC = () => {
         ctx.quadraticCurveTo(80, -70 - flap, 110, 20);
         ctx.quadraticCurveTo(60, 50, 0, 15);
         ctx.fillStyle = 'rgba(69, 10, 10, 0.9)'; ctx.fill();
-        // Прожилки крыльев
         ctx.strokeStyle = '#7F1D1D'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(110, 20); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(80, 40); ctx.stroke();
         ctx.restore();
       });
 
-      // Основное тело
       ctx.beginPath();
       ctx.roundRect(x + 25, dy + 20, width - 50, height - 30, [30, 15, 15, 30]);
       ctx.fill();
 
-      // Шипы на спине
       ctx.fillStyle = '#1A0202';
       for(let i=0; i<6; i++) {
         ctx.beginPath();
@@ -180,16 +208,13 @@ const GameCanvas: React.FC = () => {
         ctx.fill();
       }
 
-      // Голова
       ctx.fillStyle = '#7F1D1D';
       ctx.beginPath();
       ctx.roundRect(x - 5, dy + 5, 60, 50, [25, 8, 8, 25]);
       ctx.fill();
-      // Рога
       ctx.fillStyle = '#1A0202';
       ctx.beginPath(); ctx.moveTo(x+45, dy+15); ctx.lineTo(x+70, dy-5); ctx.lineTo(x+55, dy+25); ctx.fill();
 
-      // Светящийся глаз
       const eyeGlow = ctx.createRadialGradient(x+12, dy+22, 0, x+12, dy+22, 14);
       eyeGlow.addColorStop(0, '#FFF176');
       eyeGlow.addColorStop(0.5, '#F9A825');
@@ -197,10 +222,9 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = eyeGlow;
       ctx.beginPath(); ctx.arc(x+12, dy+22, 12, 0, Math.PI*2); ctx.fill();
 
-      // Дыхание огнем (Ядро + Внешнее пламя)
       const fireLen = 60 + Math.random() * 70;
       const fireGrad = ctx.createRadialGradient(x-5, dy+35, 5, x-fireLen, dy+40, fireLen);
-      fireGrad.addColorStop(0, '#FFFFFF'); // Ядро
+      fireGrad.addColorStop(0, '#FFFFFF'); 
       fireGrad.addColorStop(0.2, '#F59E0B');
       fireGrad.addColorStop(0.6, '#EF4444');
       fireGrad.addColorStop(1, 'transparent');
@@ -213,22 +237,18 @@ const GameCanvas: React.FC = () => {
 
     } else if (type === 'MIMIC') {
       const snap = Math.sin(time * 0.018) * 12;
-      // Корпус сундука
       ctx.fillStyle = '#261102';
       ctx.beginPath(); ctx.roundRect(x, y + 12, width, height - 12, 8); ctx.fill();
-      // Текстура дерева (волокна)
       ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 2;
       for(let i=0; i<width; i+=10) {
         ctx.beginPath(); ctx.moveTo(x+i, y+14); ctx.lineTo(x+i, y+height); ctx.stroke();
       }
-      // Кованые углы и замок
       ctx.fillStyle = '#52525B';
       ctx.fillRect(x, y + 12, 12, height - 12);
       ctx.fillRect(x + width - 12, y + 12, 12, height - 12);
       ctx.fillStyle = '#A16207';
       ctx.fillRect(x + width/2 - 6, y + 25 + snap, 12, 10);
       
-      // Жуткие глаза в щели (разного размера)
       for(let i=0; i<6; i++) {
         const ex = x + 8 + i*8;
         const ey = y + 22 + Math.sin(time*0.01 + i)*5;
@@ -237,17 +257,14 @@ const GameCanvas: React.FC = () => {
         ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(ex, ey, size/2, 0, Math.PI*2); ctx.fill();
       }
 
-      // Язык со слизью
       ctx.fillStyle = '#BE123C';
       ctx.beginPath();
       ctx.moveTo(x + width/2, y + 35);
       ctx.quadraticCurveTo(x + width + 45 + snap, y + 20 + Math.sin(time*0.02)*25, x + width/2, y + 55);
       ctx.fill();
-      // Капли слюны
       ctx.fillStyle = 'rgba(190, 242, 100, 0.6)';
       ctx.beginPath(); ctx.arc(x+width+35+snap, y+35+Math.sin(time*0.01)*10, 4, 0, Math.PI*2); ctx.fill();
 
-      // Острые зубы
       ctx.fillStyle = '#F8FAFC';
       for(let i=0; i<12; i++) {
         const tx = x + i*4;
@@ -258,11 +275,9 @@ const GameCanvas: React.FC = () => {
       const hover = Math.sin(time * 0.01) * 15;
       const by = y + hover;
 
-      // Тело летучей мыши
       ctx.fillStyle = '#374151';
       ctx.beginPath(); ctx.ellipse(x + width/2, by + height/2, 10, 14, 0, 0, Math.PI*2); ctx.fill();
       
-      // Крылья (Перепончатые с острыми краями)
       ctx.fillStyle = '#1F2937';
       [1, -1].forEach(side => {
         ctx.save();
@@ -277,13 +292,11 @@ const GameCanvas: React.FC = () => {
         ctx.restore();
       });
 
-      // Голова с ушками
       ctx.fillStyle = '#1F2937';
       ctx.beginPath(); ctx.arc(x+width/2, by+height/2-10, 8, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.moveTo(x+width/2-6, by+height/2-15); ctx.lineTo(x+width/2-10, by+height/2-25); ctx.lineTo(x+width/2-2, by+height/2-15); ctx.fill();
       ctx.beginPath(); ctx.moveTo(x+width/2+6, by+height/2-15); ctx.lineTo(x+width/2+10, by+height/2-25); ctx.lineTo(x+width/2+2, by+height/2-15); ctx.fill();
       
-      // Светящиеся красные глаза
       ctx.fillStyle = '#EF4444';
       ctx.beginPath(); ctx.arc(x+width/2-3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(x+width/2+3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
@@ -451,7 +464,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#6226B3';
       ctx.font = '14px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
+      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 50);
     }
   }, [gameState, invulnerableUntil, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, GROUND_Y]);
 
@@ -542,6 +555,7 @@ const GameCanvas: React.FC = () => {
     gameRef.current.player.maxJumps = currentCls.maxJumps || 1;
     gameRef.current.player.jumpsRemaining = gameRef.current.player.maxJumps;
     lastRegenRef.current = 0; setInvulnerableUntil(0); resetDnd(); setGameState('PLAYING'); setScore(0);
+    scoreSavedRef.current = false;
   }, [selectedClass, resetDnd, GROUND_Y]);
 
   const handleInput = useCallback(() => {
@@ -570,7 +584,7 @@ const GameCanvas: React.FC = () => {
       {gameState === 'CLASS_SELECTION' && (
         <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
           <h2 className="text-xl text-primary mb-8 uppercase glow-text">ВЫБЕРИТЕ КЛАСС</h2>
-          <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+          <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-8">
             {(Object.keys(CHARACTER_CLASSES) as CharacterClassName[]).map((key) => {
               const cls = CHARACTER_CLASSES[key];
               return (
@@ -590,6 +604,12 @@ const GameCanvas: React.FC = () => {
       )}
 
       <div ref={containerRef} className={cn("relative w-full h-[66vh] cursor-pointer overflow-hidden bg-black mx-auto", isShaking && "animate-shake")} style={{ maxWidth: '800px' }} onClick={handleInput}>
+        {gameState === 'START' && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
+            <Leaderboard />
+          </div>
+        )}
+        
         {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
           <div className="absolute top-0 left-0 right-0 h-[6vh] flex justify-between items-center bg-[#0D0B12]/60 p-3 px-6 backdrop-blur-sm z-10">
             <div className="flex gap-1.5">
@@ -607,8 +627,9 @@ const GameCanvas: React.FC = () => {
         {gameState === 'GAME_OVER' && (
           <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center p-4">
             <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
-            <p className="text-[10px] text-white mb-6 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
-            <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091]">ИГРАТЬ СНОВА</button>
+            <p className="text-[10px] text-white mb-4 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
+            <Leaderboard />
+            <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6">ИГРАТЬ СНОВА</button>
           </div>
         )}
       </div>
