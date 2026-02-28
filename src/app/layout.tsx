@@ -1,8 +1,6 @@
-//src/app/layout.tsx
-
 import type {Metadata} from 'next';
 import './globals.css';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { TelegramProvider } from '@/context/telegram-context';
 import { DndProvider } from '@/context/dnd-context';
 
 export const metadata: Metadata = {
@@ -24,11 +22,11 @@ export default function RootLayout({
         <script src="https://telegram.org/js/telegram-web-app.js" async></script>
       </head>
       <body className="font-body antialiased bg-[#0f0d12] text-white" suppressHydrationWarning>
-        <FirebaseClientProvider>
+        <TelegramProvider>
           <DndProvider>
             {children}
           </DndProvider>
-        </FirebaseClientProvider>
+        </TelegramProvider>
       </body>
     </html>
   );
