@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { validateTelegramData } from '@/lib/telegramAuth';
+import { validateTelegramInitData, extractTelegramUser } from '@/lib/telegramAuth';
 
 // GET /api/game/score?telegramId=123
 // Возвращает топ-10 и личный рекорд пользователя
@@ -67,23 +67,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { initData, telegramId: directTelegramId, username: directUsername, score, characterClass } = body;
 
-    console.log('POST /api/game/score body:', { 
-    hasInitData: !!initData, 
-    directTelegramId, 
-    score, 
-    characterClass 
-    });
-  
   let telegramId: number;
   let displayName: string;
 
   if (initData) {
     // Обычный запуск — валидируем через Telegram initData
-    const validation = validateTelegramData(initData);
-    if (!validation.valid || !validation.user) {
+    const isValid = validateTelegramInitData(initData);
+    if (!isValid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { id, username, first_name, last_name } = validation.user;
+    const tgUser = extractTelegramUser(initData);
+    if (!tgUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const { id, username, first_name, last_name } = tgUser;
     telegramId = id;
     displayName = username || [first_name, last_name].filter(Boolean).join(' ') || 'Аноним';
   } else if (directTelegramId) {
