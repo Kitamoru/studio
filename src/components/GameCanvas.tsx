@@ -118,7 +118,8 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   const saveScoreToFirebase = useCallback(() => {
-    if (scoreSavedRef.current || !firestore) return;
+    // КРИТИЧЕСКИ: Ждем, пока пользователь будет авторизован (user не null)
+    if (scoreSavedRef.current || !firestore || !user) return;
     
     let telegramName = 'Anonymous Hero';
     if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user) {
@@ -129,7 +130,7 @@ const GameCanvas: React.FC = () => {
     const scoresRef = collection(firestore, 'game_scores');
     addDocumentNonBlocking(scoresRef, {
       score: Math.floor(engineRef.current.distance),
-      userId: user?.uid || 'anonymous',
+      userId: user.uid, // Используем реальный UID авторизованного пользователя
       username: telegramName,
       createdAt: serverTimestamp()
     });
