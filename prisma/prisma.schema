@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id                Int                @id @default(autoincrement())
+  telegram_id       BigInt             @unique
+  character_class   String?
+  octalysis_factors octalysis_factors?
+  game_scores       game_scores[]
+}
+
+model octalysis_factors {
+  user_id Int   @id
+  factor1 Int   @default(0)
+  factor2 Int   @default(0)
+  factor3 Int   @default(0)
+  factor4 Int   @default(0)
+  factor5 Int   @default(0)
+  factor6 Int   @default(0)
+  factor7 Int   @default(0)
+  factor8 Int   @default(0)
+
+  user users @relation(fields: [user_id], references: [id])
+}
+
+model game_scores {
+  id              Int      @id @default(autoincrement())
+  user_id         Int
+  telegram_id     BigInt
+  username        String
+  score           Float
+  character_class String?
+  created_at      DateTime @default(now())
+
+  user users @relation(fields: [user_id], references: [id])
+
+  @@index([score(sort: Desc)])
+  @@index([telegram_id])
+}
