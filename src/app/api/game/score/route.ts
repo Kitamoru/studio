@@ -65,16 +65,28 @@ export async function GET(req: NextRequest) {
 // Сохраняет результат после окончания игры
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { initData, score, characterClass } = body;
+  const { initData, telegramId: directTelegramId, username: directUsername, score, characterClass } = body;
 
-  // Валидируем через тот же механизм что и Moraleon
-  const validation = validateTelegramData(initData);
-  if (!validation.valid || !validation.user) {
+  let telegramId: number;
+  let displayName: string;
+
+  if (initData) {
+    // Обычный запуск — валидируем через Telegram initData
+    const validation = validateTelegramData(initData);
+    if (!validation.valid || !validation.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const { id, username, first_name, last_name } = validation.user;
+    telegramId = id;
+    displayName = username || [first_name, last_name].filter(Boolean).join(' ') || 'Аноним';
+  } else if (directTelegramId) {
+    // iframe режим — telegramId передан напрямую из Moraleon
+    // Безопасно: пользователь уже аутентифицирован в Moraleon
+    telegramId = Number(directTelegramId);
+    displayName = directUsername || 'Аноним';
+  } else {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const { id: telegramId, username, first_name, last_name } = validation.user;
-  const displayName = username || [first_name, last_name].filter(Boolean).join(' ') || 'Аноним';
 
   // Находим или создаём пользователя (он уже должен существовать через Moraleon)
   const user = await prisma.users.findUnique({
