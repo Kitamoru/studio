@@ -560,37 +560,56 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      <div ref={containerRef} className={cn("relative w-full h-[66vh] cursor-pointer overflow-hidden bg-black mx-auto", isShaking && "animate-shake")} style={{ maxWidth: '800px' }} onClick={handleInput}>
-        {gameState === 'START' && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
-            <Leaderboard />
-          </div>
-        )}
-        
-        {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
-          <div className="absolute top-0 left-0 right-0 h-[6vh] flex justify-between items-center bg-[#0D0B12]/60 p-3 px-6 backdrop-blur-sm z-10">
-            <div className="flex gap-1.5">
-              {Array.from({ length: maxHp }).map((_, i) => (
-                <Heart key={i} size={14} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#333'} />
-              ))}
+      {/* Адаптивный контейнер игрового поля */}
+      <div 
+        ref={containerRef} 
+        className={cn(
+          "relative flex-1 w-full max-w-[800px] mx-auto cursor-pointer overflow-hidden bg-black flex items-center justify-center",
+          isShaking && "animate-shake"
+        )} 
+        onClick={handleInput}
+      >
+        <div 
+          className="relative w-full h-full flex items-center justify-center"
+          style={{ aspectRatio: `${VIRTUAL_WIDTH} / ${VIRTUAL_HEIGHT}` }}
+        >
+          {gameState === 'START' && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
+              <Leaderboard />
             </div>
-            <div className="text-right">
-               <div className="text-[10px] text-primary font-bold">{score}м</div>
-               <div className="text-[7px] text-secondary opacity-60 uppercase">{selectedClass?.label}</div>
+          )}
+          
+          {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
+            <div className="absolute top-0 left-0 right-0 h-[6vh] flex justify-between items-center bg-[#0D0B12]/60 p-3 px-6 backdrop-blur-sm z-10">
+              <div className="flex gap-1.5">
+                {Array.from({ length: maxHp }).map((_, i) => (
+                  <Heart key={i} size={14} fill={i < hp ? '#ff0000' : 'none'} color={i < hp ? '#ff0000' : '#333'} />
+                ))}
+              </div>
+              <div className="text-right">
+                 <div className="text-[10px] text-primary font-bold">{score}м</div>
+                 <div className="text-[7px] text-secondary opacity-60 uppercase">{selectedClass?.label}</div>
+              </div>
             </div>
-          </div>
-        )}
-        <canvas ref={canvasRef} width={VIRTUAL_WIDTH} height={VIRTUAL_HEIGHT} className="image-pixelated w-full h-full block mx-auto" />
-        {gameState === 'GAME_OVER' && (
-          <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center p-4">
-            <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
-            <p className="text-[10px] text-white mb-4 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
-            <Leaderboard />
-            <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6">ИГРАТЬ СНОВА</button>
-          </div>
-        )}
+          )}
+          <canvas 
+            ref={canvasRef} 
+            width={VIRTUAL_WIDTH} 
+            height={VIRTUAL_HEIGHT} 
+            className="image-pixelated max-w-full max-h-full object-contain block mx-auto" 
+          />
+          {gameState === 'GAME_OVER' && (
+            <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center p-4">
+              <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
+              <p className="text-[10px] text-white mb-4 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
+              <Leaderboard />
+              <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6">ИГРАТЬ СНОВА</button>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Секция лога боя - фиксированная высота */}
       <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 mx-auto" style={{ maxWidth: '800px' }}>
         {combatLog.map((log) => (
           <div key={log.id} className={cn("text-[8px] uppercase flex items-center gap-2", log.type === 'success' ? 'text-green-400' : log.type === 'fail' ? 'text-red-400' : 'text-gray-500')}>
