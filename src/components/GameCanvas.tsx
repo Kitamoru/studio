@@ -191,7 +191,6 @@ const GameCanvas: React.FC = () => {
         ctx.fillStyle = 'rgba(69, 10, 10, 0.9)'; ctx.fill();
         ctx.strokeStyle = '#7F1D1D'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(110, 20); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(80, 40); ctx.stroke();
         ctx.restore();
       });
 
@@ -234,96 +233,53 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
 
     } else if (type === 'MIMIC') {
-      // Анимированный Мимик: Деревянный сундук с клацающей крышкой
-      const snap = Math.abs(Math.sin(time * 0.01)) * 18; // Анимация челюсти (крышки)
-      
-      // 1. Нижняя часть сундука (основание)
-      ctx.fillStyle = '#2D1807'; // Темное дерево
-      ctx.beginPath(); 
-      ctx.roundRect(x, y + 25, width, height - 25, 4); 
-      ctx.fill();
-      
-      // Текстура дерева
+      const snap = Math.abs(Math.sin(time * 0.01)) * 18;
+      ctx.fillStyle = '#2D1807';
+      ctx.beginPath(); ctx.roundRect(x, y + 25, width, height - 25, 4); ctx.fill();
       ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 1;
       for(let i=5; i<width; i+=10) {
         ctx.beginPath(); ctx.moveTo(x+i, y+27); ctx.lineTo(x+i, y+height-4); ctx.stroke();
       }
-
-      // 2. Рот (Темная щель)
       ctx.fillStyle = 'black';
       ctx.fillRect(x + 4, y + 20, width - 8, 10);
-
-      // 3. Глаза (выглядывают из щели)
       for(let i=0; i<3; i++) {
-        const ex = x + 10 + i * 14;
-        const ey = y + 24;
-        ctx.fillStyle = '#EAB308';
-        ctx.beginPath(); ctx.arc(ex, ey, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = 'black';
-        ctx.beginPath(); ctx.arc(ex, ey, 1, 0, Math.PI * 2); ctx.fill();
+        const ex = x + 10 + i * 14; const ey = y + 24;
+        ctx.fillStyle = '#EAB308'; ctx.beginPath(); ctx.arc(ex, ey, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(ex, ey, 1, 0, Math.PI * 2); ctx.fill();
       }
-
-      // 4. Нижние зубы
       ctx.fillStyle = '#F8FAFC';
       for(let i=0; i<6; i++) {
         const tx = x + 6 + i*6;
         ctx.beginPath(); ctx.moveTo(tx, y + 25); ctx.lineTo(tx + 3, y + 20); ctx.lineTo(tx + 6, y + 25); ctx.fill();
       }
-
-      // 5. Верхняя крышка (подвижная)
       ctx.save();
-      ctx.translate(0, -snap); // Поднимаем крышку
+      ctx.translate(0, -snap);
       ctx.fillStyle = '#452A12';
-      ctx.beginPath(); 
-      ctx.roundRect(x, y + 5, width, 18, 6); 
-      ctx.fill();
-      
-      // Ковка на крышке
-      ctx.fillStyle = '#71717A';
-      ctx.fillRect(x, y + 5, 8, 18);
-      ctx.fillRect(x + width - 8, y + 5, 8, 18);
-      
-      // Замок
-      ctx.fillStyle = '#A16207';
-      ctx.fillRect(x + width/2 - 4, y + 16, 8, 6);
-
-      // Верхние зубы
+      ctx.beginPath(); ctx.roundRect(x, y + 5, width, 18, 6); ctx.fill();
+      ctx.fillStyle = '#71717A'; ctx.fillRect(x, y + 5, 8, 18); ctx.fillRect(x + width - 8, y + 5, 8, 18);
+      ctx.fillStyle = '#A16207'; ctx.fillRect(x + width/2 - 4, y + 16, 8, 6);
       ctx.fillStyle = '#F8FAFC';
       for(let i=0; i<7; i++) {
         const tx = x + 4 + i*6;
         ctx.beginPath(); ctx.moveTo(tx, y + 23); ctx.lineTo(tx + 3, y + 28); ctx.lineTo(tx + 6, y + 23); ctx.fill();
       }
       ctx.restore();
-
     } else if (type === 'BAT') {
       const flap = Math.sin(time * 0.02) * 20;
       const hover = Math.sin(time * 0.01) * 15;
       const by = y + hover;
-
       ctx.fillStyle = '#374151';
       ctx.beginPath(); ctx.ellipse(x + width/2, by + height/2, 10, 14, 0, 0, Math.PI*2); ctx.fill();
-      
       ctx.fillStyle = '#1F2937';
       [1, -1].forEach(side => {
         ctx.save();
         ctx.translate(x + width/2, by + height/2);
         ctx.scale(side, 1);
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(30, -30 - flap, 45, 0);
-        ctx.quadraticCurveTo(30, 20, 15, 5);
-        ctx.quadraticCurveTo(5, 15, 0, 0);
-        ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(30, -30 - flap, 45, 0); ctx.quadraticCurveTo(30, 20, 15, 5); ctx.quadraticCurveTo(5, 15, 0, 0); ctx.fill();
         ctx.restore();
       });
-
-      ctx.fillStyle = '#1F2937';
-      ctx.beginPath(); ctx.arc(x+width/2, by+height/2-10, 8, 0, Math.PI*2); ctx.fill();
-      
-      ctx.fillStyle = '#EF4444';
-      ctx.beginPath(); ctx.arc(x+width/2-3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x+width/2+3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
-
+      ctx.fillStyle = '#1F2937'; ctx.beginPath(); ctx.arc(x+width/2, by+height/2-10, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(x+width/2-3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+width/2+3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
     } else if (type === 'OGRE') {
       ctx.fillStyle = '#166534';
       ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 18); ctx.fill();
@@ -331,31 +287,21 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.roundRect(x - 2, y + 10, 35, 28, 8); ctx.fill();
       ctx.fillStyle = '#14532D';
       ctx.beginPath(); ctx.roundRect(x + 10, y, 42, 38, 12); ctx.fill();
-      
       ctx.save();
       const clubSwing = Math.sin(time * 0.007) * 0.9;
       ctx.translate(x + width - 5, y + 55);
       ctx.rotate(clubSwing);
-      ctx.fillStyle = '#422006';
-      ctx.fillRect(-5, -45, 14, 65);
-      ctx.fillStyle = '#713F12';
-      ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#422006'; ctx.fillRect(-5, -45, 14, 65);
+      ctx.fillStyle = '#713F12'; ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI*2); ctx.fill();
       ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
       for(let i=0; i<8; i++) {
-        const ang = (i * Math.PI * 2) / 8;
-        ctx.beginPath();
-        ctx.moveTo(2 + Math.cos(ang)*15, -45 + Math.sin(ang)*15);
-        ctx.lineTo(2 + Math.cos(ang)*28, -45 + Math.sin(ang)*28);
-        ctx.stroke();
+        const ang = (i * Math.PI * 2) / 8; ctx.beginPath(); ctx.moveTo(2 + Math.cos(ang)*15, -45 + Math.sin(ang)*15); ctx.lineTo(2 + Math.cos(ang)*28, -45 + Math.sin(ang)*28); ctx.stroke();
       }
       ctx.restore();
-
     } else if (type === 'SLIME') {
       const wobble = Math.sin(time * 0.01) * 10;
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)'; 
-      ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(21, 128, 61, 0.9)'; 
-      ctx.beginPath(); ctx.arc(x + width/2, y + height - 18, 10, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)'; ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(21, 128, 61, 0.9)'; ctx.beginPath(); ctx.arc(x + width/2, y + height - 18, 10, 0, Math.PI*2); ctx.fill();
     } else if (type === 'BEHOLDER') {
       const float = Math.sin(time * 0.005) * 15;
       const fy = y + float;
@@ -363,9 +309,7 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#6D102A'; ctx.lineWidth = 4;
       for(let i=0; i<6; i++) {
-        const ang = (i * Math.PI) / 3;
-        const tx = x + width/2 + Math.cos(ang) * 40;
-        const ty = fy + height/2 + Math.sin(ang) * 40;
+        const ang = (i * Math.PI) / 3; const tx = x + width/2 + Math.cos(ang) * 40; const ty = fy + height/2 + Math.sin(ang) * 40;
         ctx.beginPath(); ctx.moveTo(x+width/2, fy+height/2); ctx.lineTo(tx, ty); ctx.stroke();
         ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(tx, ty, 6, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI*2); ctx.fill();
@@ -376,16 +320,8 @@ const GameCanvas: React.FC = () => {
       const hover = Math.sin(time * 0.006) * 10;
       ctx.globalAlpha = 0.6 + Math.sin(time*0.01)*0.2;
       ctx.fillStyle = '#F1F5F9';
-      ctx.beginPath();
-      ctx.moveTo(x + width/2, y + hover);
-      ctx.quadraticCurveTo(x + width, y + hover, x + width, y + height/2 + hover);
-      ctx.quadraticCurveTo(x + width, y + height + hover + Math.sin(time*0.01)*10, x + width/2, y + height - 10 + hover);
-      ctx.quadraticCurveTo(x, y + height + hover + Math.sin(time*0.01)*10, x, y + height/2 + hover);
-      ctx.quadraticCurveTo(x, y + hover, x + width/2, y + hover);
-      ctx.fill();
-      ctx.fillStyle = '#0EA5E9';
-      ctx.beginPath(); ctx.arc(x+15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x+width-15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x + width/2, y + hover); ctx.quadraticCurveTo(x + width, y + hover, x + width, y + height/2 + hover); ctx.quadraticCurveTo(x + width, y + height + hover + Math.sin(time*0.01)*10, x + width/2, y + height - 10 + hover); ctx.quadraticCurveTo(x, y + height + hover + Math.sin(time*0.01)*10, x, y + height/2 + hover); ctx.quadraticCurveTo(x, y + hover, x + width/2, y + hover); ctx.fill();
+      ctx.fillStyle = '#0EA5E9'; ctx.beginPath(); ctx.arc(x+15, y+25+hover, 4, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+width-15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1.0;
     } else {
       ctx.fillStyle = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS]?.color || 'red';
@@ -399,7 +335,6 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, GROUND_Y);
 
-    // Дальние факелы (Увеличенный размер и свечение)
     let farOffset = gameRef.current.parallax[0] % 400;
     for (let x = -farOffset; x < VIRTUAL_WIDTH + 400; x += 400) {
       const tx = x + 150;
@@ -416,7 +351,6 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.moveTo(tx-6, ty+8); ctx.quadraticCurveTo(tx, ty-15-flicker, tx+6, ty+8); ctx.fill();
     }
 
-    // Колонны-арки (Перекрывают факелы)
     let archOffset = gameRef.current.parallax[1] % 500;
     for (let x = -archOffset; x < VIRTUAL_WIDTH + 500; x += 500) {
       ctx.fillStyle = '#16131C';
@@ -545,7 +479,9 @@ const GameCanvas: React.FC = () => {
       for (let i = monsters.length - 1; i >= 0; i--) {
         const m = monsters[i];
         m.x -= currentSpeed * dtFactor;
-        if (checkCollision(player, m, ASSET_MANIFEST.PLAYER.hitboxPadding) && Date.now() > invulnerableUntil) {
+        
+        const monsterConfig = ASSET_MANIFEST.MONSTERS[m.type as keyof typeof ASSET_MANIFEST.MONSTERS] || ASSET_MANIFEST.MONSTERS.SLIME;
+        if (checkCollision(player, ASSET_MANIFEST.PLAYER.hitboxPadding, m, monsterConfig.hitboxPadding) && Date.now() > invulnerableUntil) {
           setIsShaking(true); setTimeout(() => setIsShaking(false), 300);
           if (selectedClass) {
             const check = performACCheck(selectedClass.armorClass);

@@ -1,3 +1,4 @@
+
 import { GameObject } from '@/types/game';
 
 /**
@@ -13,16 +14,22 @@ export function calculateSpeed(
 }
 
 /**
- * Высокопроизводительная проверка коллизий (AABB).
+ * Высокопроизводительная проверка коллизий (AABB) с индивидуальными отступами.
  * @param p Объект игрока
+ * @param pPadding Отступ игрока
  * @param o Объект препятствия
- * @param padding Внутренний отступ для более точного хитбокса
+ * @param oPadding Отступ препятствия
  */
-export function checkCollision(p: GameObject, o: GameObject, padding: number = 18): boolean {
+export function checkCollision(
+  p: GameObject, 
+  pPadding: number, 
+  o: GameObject, 
+  oPadding: number
+): boolean {
   return (
-    p.x + padding < o.x + o.width - padding &&
-    p.x + p.width - padding > o.x + padding &&
-    p.y + padding < o.y + o.height - padding &&
-    p.y + p.height - padding > o.y + padding
+    p.x + pPadding < o.x + o.width - oPadding &&
+    p.x + p.width - pPadding > o.x + oPadding &&
+    p.y + pPadding < o.y + o.height - oPadding &&
+    p.y + p.height - pPadding > o.y + oPadding
   );
 }
