@@ -1,4 +1,3 @@
-//src/components/GameCanvas.tsx
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -10,8 +9,7 @@ import { performACCheck, CHARACTER_CLASSES } from '@/lib/dnd-logic';
 import { ASSET_MANIFEST } from '@/lib/asset-manifest';
 import { Heart, Shield, Zap, Wand2, Loader2, Sword, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { useTelegramUser } from '@/context/telegram-context';
 import { Leaderboard } from './Leaderboard';
 
 interface Particle {
@@ -37,10 +35,9 @@ const GameCanvas: React.FC = () => {
   const logEndRef = useRef<HTMLDivElement>(null);
   const playerImgRef = useRef<HTMLImageElement | null>(null);
   const { hp, maxHp, selectedClass, combatLog, selectClass, takeDamage, heal, addLog, resetDnd } = useDnd();
-  
-  const firestore = useFirestore();
-  const { user } = useUser();
-  
+
+  const { user, initData } = useTelegramUser();
+
   const [gameState, setGameState] = useState<GameStatus>('START');
   const [score, setScore] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -91,7 +88,6 @@ const GameCanvas: React.FC = () => {
         const { clientWidth, clientHeight } = containerRef.current;
         setCanvasSize({ width: clientWidth, height: clientHeight });
         
-        // Обновляем частицы пыли под новую ширину
         if (gameRef.current.ambientParticles.length === 0) {
           for (let i = 0; i < 40; i++) {
             gameRef.current.ambientParticles.push({
@@ -121,6 +117,14 @@ const GameCanvas: React.FC = () => {
       tg.ready();
       tg.expand();
       tg.headerColor = '#0D0B12';
+
+      // Кнопка "Назад" — возврат в Moraleon
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => tg.close());
+
+      return () => {
+        tg.BackButton.hide();
+      };
     }
   }, []);
 
@@ -134,31 +138,32 @@ const GameCanvas: React.FC = () => {
     img.onerror = () => setIsImageLoaded(true);
   }, []);
 
-  const saveScoreToFirebase = useCallback(() => {
-    if (scoreSavedRef.current || !firestore || !user) return;
-    
-    let telegramName = 'Anonymous Hero';
-    if (typeof window !== 'undefined' && window.Telegram?.WebApp?.initDataUnsafe?.user) {
-      const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
-      telegramName = tgUser.username || `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
-    }
-
-    const scoresRef = collection(firestore, 'game_scores');
-    addDocumentNonBlocking(scoresRef, {
-      score: Math.floor(engineRef.current.distance),
-      userId: user.uid,
-      username: telegramName,
-      createdAt: serverTimestamp()
-    });
-    
+  const saveScore = useCallback(async () => {
+    if (scoreSavedRef.current || !initData) return;
     scoreSavedRef.current = true;
-  }, [firestore, user]);
+
+    try {
+      await fetch('/api/game/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initData,
+          score: Math.floor(engineRef.current.distance),
+          characterClass: selectedClass?.name ?? null,
+        }),
+      });
+      // Сигнализируем Leaderboard об обновлении
+      window.dispatchEvent(new Event('game:score-saved'));
+    } catch (err) {
+      console.error('Failed to save score:', err);
+    }
+  }, [initData, selectedClass]);
 
   useEffect(() => {
     if (gameState === 'GAME_OVER') {
-      saveScoreToFirebase();
+      saveScore();
     }
-  }, [gameState, saveScoreToFirebase]);
+  }, [gameState, saveScore]);
 
   const createJumpEffect = (x: number, y: number, color = '#6226B3', isSecond = false) => {
     const count = isSecond ? 15 : 10;
@@ -355,7 +360,6 @@ const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, 0, W, GROUND_Y);
 
-    // Слой 1: Дальняя стена и факелы
     let farOffset = gameRef.current.parallax[0] % 400;
     for (let x = -farOffset; x < W + 400; x += 400) {
       const tx = x + 150;
@@ -372,7 +376,6 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.moveTo(tx-6, ty+8); ctx.quadraticCurveTo(tx, ty-15-flicker, tx+6, ty+8); ctx.fill();
     }
 
-    // Слой 2: Колонны и арки
     let archOffset = gameRef.current.parallax[1] % 500;
     for (let x = -archOffset; x < W + 500; x += 500) {
       ctx.fillStyle = '#16131C';
@@ -387,7 +390,6 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Слой 3: Пыль и частицы (на всю ширину)
     gameRef.current.ambientParticles.forEach(p => {
       ctx.fillStyle = '#EAB308';
       ctx.globalAlpha = p.opacity;
@@ -400,7 +402,6 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
-    // Слой 4: Пол
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, GROUND_Y, W, VIRTUAL_HEIGHT - GROUND_Y);
     ctx.fillStyle = '#6226B3';
@@ -424,7 +425,6 @@ const GameCanvas: React.FC = () => {
     ctx.clearRect(0, 0, W, H);
     drawBackground(ctx);
 
-    // Отрисовка частиц прыжков
     gameRef.current.particles.forEach((p, i) => {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
@@ -486,7 +486,6 @@ const GameCanvas: React.FC = () => {
         lastRegenRef.current = timestamp;
       }
 
-      // Появление монстров за границей экрана (с учетом динамической ширины)
       if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
@@ -500,7 +499,7 @@ const GameCanvas: React.FC = () => {
           id: Math.random().toString(),
           type,
           obstacleType: config.type as any,
-          x: W + 150, // Всегда за правой границей
+          x: W + 150,
           y: yPos,
           width: config.width,
           height: config.height,
@@ -593,7 +592,6 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Полноэкранный контейнер игрового поля */}
       <div 
         ref={containerRef} 
         className={cn(
@@ -641,7 +639,6 @@ const GameCanvas: React.FC = () => {
         </div>
       </div>
 
-      {/* Секция лога боя - фиксированная высота */}
       <div className="w-full h-[25vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20">
         {combatLog.map((log) => (
           <div key={log.id} className={cn("text-[8px] uppercase flex items-center gap-2", log.type === 'success' ? 'text-green-400' : log.type === 'fail' ? 'text-red-400' : 'text-gray-500')}>
