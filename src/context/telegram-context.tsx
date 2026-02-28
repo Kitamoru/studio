@@ -28,18 +28,11 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
 
-    if (!tg) {
-      console.warn('Telegram WebApp not available. Are you running outside Telegram?');
-      setState({ user: null, initData: null, isLoading: false });
-      return;
-    }
+    // Приоритет 1: Telegram WebApp (обычный запуск)
+    if (tg?.initDataUnsafe?.user) {
+      tg.ready();
 
-    tg.ready();
-
-    const rawUser = tg.initDataUnsafe?.user;
-    const initData = tg.initData;
-
-    if (rawUser) {
+      const rawUser = tg.initDataUnsafe.user;
       const displayName =
         rawUser.username ||
         [rawUser.first_name, rawUser.last_name].filter(Boolean).join(' ') ||
@@ -47,12 +40,37 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
 
       setState({
         user: { ...rawUser, displayName },
-        initData,
+        initData: tg.initData,
         isLoading: false,
       });
-    } else {
-      setState({ user: null, initData, isLoading: false });
+      return;
     }
+
+    // Приоритет 2: URL параметры (режим iframe из Moraleon)
+    const params = new URLSearchParams(window.location.search);
+    const telegramId = params.get('telegramId');
+    const username = params.get('username');
+    const firstName = params.get('firstName');
+
+    if (telegramId) {
+      const displayName = username || firstName || 'Аноним';
+      setState({
+        user: {
+          id: Number(telegramId),
+          username: username ?? undefined,
+          first_name: firstName ?? undefined,
+          displayName,
+        },
+        // В iframe режиме initData недоступен — передаём telegramId напрямую
+        initData: null,
+        isLoading: false,
+      });
+      return;
+    }
+
+    // Ничего не найдено
+    console.warn('Telegram WebApp not available and no URL params provided.');
+    setState({ user: null, initData: null, isLoading: false });
   }, []);
 
   return (
