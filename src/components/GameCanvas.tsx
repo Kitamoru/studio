@@ -141,14 +141,14 @@ const GameCanvas: React.FC = () => {
       bodyGrad.addColorStop(1, '#450A0A');
       ctx.fillStyle = bodyGrad;
       
-      // Хвост
+      // Хвост с шипом
       ctx.beginPath();
       ctx.moveTo(x + width - 20, dy + height/2);
       ctx.quadraticCurveTo(x + width + 50, dy + height/2 + Math.sin(time*0.004)*40, x + width + 35, dy + height - 10);
       ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 14; ctx.stroke();
       ctx.fillStyle = '#450A0A'; ctx.beginPath(); ctx.moveTo(x+width+35, dy+height-10); ctx.lineTo(x+width+45, dy+height+5); ctx.lineTo(x+width+25, dy+height+5); ctx.fill();
 
-      // Крылья (Сложные)
+      // Крылья (Скелет + Перепонки)
       [ {ox: 30, sx: 1}, {ox: 10, sx: -1} ].forEach(wing => {
         ctx.save();
         ctx.translate(x + width/2 + wing.ox, dy + 40);
@@ -157,9 +157,11 @@ const GameCanvas: React.FC = () => {
         ctx.moveTo(0, 0);
         ctx.quadraticCurveTo(80, -70 - flap, 110, 20);
         ctx.quadraticCurveTo(60, 50, 0, 15);
-        ctx.fillStyle = '#450A0A'; ctx.fill();
-        // Перепонки крыльев
-        ctx.strokeStyle = '#7F1D1D'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = 'rgba(69, 10, 10, 0.9)'; ctx.fill();
+        // Прожилки крыльев
+        ctx.strokeStyle = '#7F1D1D'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(110, 20); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(80, 40); ctx.stroke();
         ctx.restore();
       });
 
@@ -183,20 +185,24 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath();
       ctx.roundRect(x - 5, dy + 5, 60, 50, [25, 8, 8, 25]);
       ctx.fill();
+      // Рога
+      ctx.fillStyle = '#1A0202';
+      ctx.beginPath(); ctx.moveTo(x+45, dy+15); ctx.lineTo(x+70, dy-5); ctx.lineTo(x+55, dy+25); ctx.fill();
 
       // Светящийся глаз
       const eyeGlow = ctx.createRadialGradient(x+12, dy+22, 0, x+12, dy+22, 14);
-      eyeGlow.addColorStop(0, '#FDE047');
-      eyeGlow.addColorStop(0.6, '#EAB308');
+      eyeGlow.addColorStop(0, '#FFF176');
+      eyeGlow.addColorStop(0.5, '#F9A825');
       eyeGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = eyeGlow;
-      ctx.beginPath(); ctx.arc(x+12, dy+22, 14, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+12, dy+22, 12, 0, Math.PI*2); ctx.fill();
 
-      // Дыхание огнем (Многослойный градиент)
-      const fireLen = 50 + Math.random() * 60;
+      // Дыхание огнем (Ядро + Внешнее пламя)
+      const fireLen = 60 + Math.random() * 70;
       const fireGrad = ctx.createRadialGradient(x-5, dy+35, 5, x-fireLen, dy+40, fireLen);
-      fireGrad.addColorStop(0, '#F59E0B');
-      fireGrad.addColorStop(0.4, '#EF4444');
+      fireGrad.addColorStop(0, '#FFFFFF'); // Ядро
+      fireGrad.addColorStop(0.2, '#F59E0B');
+      fireGrad.addColorStop(0.6, '#EF4444');
       fireGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = fireGrad;
       ctx.beginPath();
@@ -205,19 +211,92 @@ const GameCanvas: React.FC = () => {
       ctx.quadraticCurveTo(x - fireLen/2, dy + 55 + Math.sin(time*0.02)*25, x+5, dy + 45);
       ctx.fill();
 
+    } else if (type === 'MIMIC') {
+      const snap = Math.sin(time * 0.018) * 12;
+      // Корпус сундука
+      ctx.fillStyle = '#261102';
+      ctx.beginPath(); ctx.roundRect(x, y + 12, width, height - 12, 8); ctx.fill();
+      // Текстура дерева (волокна)
+      ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 2;
+      for(let i=0; i<width; i+=10) {
+        ctx.beginPath(); ctx.moveTo(x+i, y+14); ctx.lineTo(x+i, y+height); ctx.stroke();
+      }
+      // Кованые углы и замок
+      ctx.fillStyle = '#52525B';
+      ctx.fillRect(x, y + 12, 12, height - 12);
+      ctx.fillRect(x + width - 12, y + 12, 12, height - 12);
+      ctx.fillStyle = '#A16207';
+      ctx.fillRect(x + width/2 - 6, y + 25 + snap, 12, 10);
+      
+      // Жуткие глаза в щели (разного размера)
+      for(let i=0; i<6; i++) {
+        const ex = x + 8 + i*8;
+        const ey = y + 22 + Math.sin(time*0.01 + i)*5;
+        const size = 3 + Math.sin(time*0.005 + i)*2;
+        ctx.fillStyle = '#EAB308'; ctx.beginPath(); ctx.arc(ex, ey, size+1, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(ex, ey, size/2, 0, Math.PI*2); ctx.fill();
+      }
+
+      // Язык со слизью
+      ctx.fillStyle = '#BE123C';
+      ctx.beginPath();
+      ctx.moveTo(x + width/2, y + 35);
+      ctx.quadraticCurveTo(x + width + 45 + snap, y + 20 + Math.sin(time*0.02)*25, x + width/2, y + 55);
+      ctx.fill();
+      // Капли слюны
+      ctx.fillStyle = 'rgba(190, 242, 100, 0.6)';
+      ctx.beginPath(); ctx.arc(x+width+35+snap, y+35+Math.sin(time*0.01)*10, 4, 0, Math.PI*2); ctx.fill();
+
+      // Острые зубы
+      ctx.fillStyle = '#F8FAFC';
+      for(let i=0; i<12; i++) {
+        const tx = x + i*4;
+        ctx.beginPath(); ctx.moveTo(tx, y + 12); ctx.lineTo(tx + 2, y + 25 + snap); ctx.lineTo(tx + 4, y + 12); ctx.fill();
+      }
+    } else if (type === 'BAT') {
+      const flap = Math.sin(time * 0.02) * 20;
+      const hover = Math.sin(time * 0.01) * 15;
+      const by = y + hover;
+
+      // Тело летучей мыши
+      ctx.fillStyle = '#374151';
+      ctx.beginPath(); ctx.ellipse(x + width/2, by + height/2, 10, 14, 0, 0, Math.PI*2); ctx.fill();
+      
+      // Крылья (Перепончатые с острыми краями)
+      ctx.fillStyle = '#1F2937';
+      [1, -1].forEach(side => {
+        ctx.save();
+        ctx.translate(x + width/2, by + height/2);
+        ctx.scale(side, 1);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(30, -30 - flap, 45, 0);
+        ctx.quadraticCurveTo(30, 20, 15, 5);
+        ctx.quadraticCurveTo(5, 15, 0, 0);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Голова с ушками
+      ctx.fillStyle = '#1F2937';
+      ctx.beginPath(); ctx.arc(x+width/2, by+height/2-10, 8, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x+width/2-6, by+height/2-15); ctx.lineTo(x+width/2-10, by+height/2-25); ctx.lineTo(x+width/2-2, by+height/2-15); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x+width/2+6, by+height/2-15); ctx.lineTo(x+width/2+10, by+height/2-25); ctx.lineTo(x+width/2+2, by+height/2-15); ctx.fill();
+      
+      // Светящиеся красные глаза
+      ctx.fillStyle = '#EF4444';
+      ctx.beginPath(); ctx.arc(x+width/2-3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+width/2+3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
+
     } else if (type === 'OGRE') {
-      // Тело огра
       ctx.fillStyle = '#166534';
       ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 18); ctx.fill();
-      // Наплечник
       ctx.fillStyle = '#422006';
       ctx.beginPath(); ctx.roundRect(x - 2, y + 10, 35, 28, 8); ctx.fill();
-      // Голова с клыками
       ctx.fillStyle = '#14532D';
       ctx.beginPath(); ctx.roundRect(x + 10, y, 42, 38, 12); ctx.fill();
       ctx.fillStyle = 'white'; ctx.fillRect(x+15, y+28, 4, 6); ctx.fillRect(x+43, y+28, 4, 6);
       
-      // Шипованная дубина (Анимация замаха)
       ctx.save();
       const clubSwing = Math.sin(time * 0.007) * 0.9;
       ctx.translate(x + width - 5, y + 55);
@@ -226,7 +305,6 @@ const GameCanvas: React.FC = () => {
       ctx.fillRect(-5, -45, 14, 65);
       ctx.fillStyle = '#713F12';
       ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI*2); ctx.fill();
-      // Стальные шипы
       ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
       for(let i=0; i<8; i++) {
         const ang = (i * Math.PI * 2) / 8;
@@ -237,61 +315,19 @@ const GameCanvas: React.FC = () => {
       }
       ctx.restore();
 
-    } else if (type === 'MIMIC') {
-      const snap = Math.sin(time * 0.018) * 12;
-      // Сундук
-      ctx.fillStyle = '#261102';
-      ctx.beginPath(); ctx.roundRect(x, y + 12, width, height - 12, 8); ctx.fill();
-      // Текстура дерева
-      ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 2;
-      for(let i=1; i<4; i++) {
-        ctx.beginPath(); ctx.moveTo(x + i*(width/4), y + 14); ctx.lineTo(x + i*(width/4), y + height); ctx.stroke();
-      }
-      // Ковка
-      ctx.fillStyle = '#A16207';
-      ctx.fillRect(x, y + 12, 10, height - 12);
-      ctx.fillRect(x + width - 10, y + 12, 10, height - 12);
-      
-      // Жуткие глаза в щели
-      for(let i=0; i<5; i++) {
-        const ex = x + 10 + i*9;
-        const ey = y + 22 + Math.sin(time*0.015 + i)*6;
-        ctx.fillStyle = '#EAB308'; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI*2); ctx.fill();
-      }
-
-      // Язык с капельками слизи
-      ctx.fillStyle = '#BE123C';
-      ctx.beginPath();
-      ctx.moveTo(x + width/2, y + 35);
-      ctx.quadraticCurveTo(x + width + 40 + snap, y + 20 + Math.sin(time*0.02)*30, x + width/2, y + 50);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(x+width+30+snap, y+35, 3, 0, Math.PI*2); ctx.fill();
-
-      // Зубы
-      ctx.fillStyle = '#F8FAFC';
-      for(let i=0; i<10; i++) {
-        const tx = x + 2 + i*5;
-        ctx.beginPath(); ctx.moveTo(tx, y + 12); ctx.lineTo(tx + 2.5, y + 26 + snap); ctx.lineTo(tx + 5, y + 12); ctx.fill();
-      }
     } else if (type === 'SLIME') {
       const wobble = Math.sin(time * 0.01) * 10;
-      // Полупрозрачное тело
       ctx.fillStyle = 'rgba(74, 222, 128, 0.5)'; 
       ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
-      // Ядро
       ctx.fillStyle = 'rgba(21, 128, 61, 0.9)'; 
       ctx.beginPath(); ctx.arc(x + width/2, y + height - 18, 10, 0, Math.PI*2); ctx.fill();
-      // Пузырьки
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.beginPath(); ctx.arc(x + width/2 - 10, y + height - 25 + wobble, 3, 0, Math.PI*2); ctx.fill();
     } else if (type === 'BEHOLDER') {
       const float = Math.sin(time * 0.005) * 15;
       const fy = y + float;
-      // Тело
       ctx.fillStyle = '#6D102A';
       ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
-      // Щупальца с глазами
       ctx.strokeStyle = '#6D102A'; ctx.lineWidth = 4;
       for(let i=0; i<6; i++) {
         const ang = (i * Math.PI) / 3;
@@ -301,7 +337,6 @@ const GameCanvas: React.FC = () => {
         ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(tx, ty, 6, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI*2); ctx.fill();
       }
-      // Центральный глаз
       ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.004)*8, fy + height/2 + Math.sin(time*0.004)*5, 8, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.004)*8, fy + height/2 + Math.sin(time*0.004)*5, 3, 0, Math.PI * 2); ctx.fill();
@@ -316,7 +351,6 @@ const GameCanvas: React.FC = () => {
       ctx.quadraticCurveTo(x, y + height + hover + Math.sin(time*0.01)*10, x, y + height/2 + hover);
       ctx.quadraticCurveTo(x, y + hover, x + width/2, y + hover);
       ctx.fill();
-      // Светящиеся глаза
       ctx.fillStyle = '#0EA5E9';
       ctx.beginPath(); ctx.arc(x+15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(x+width-15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
@@ -330,11 +364,9 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
-    // 1. Дальняя стена
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, GROUND_Y);
 
-    // 2. Факелы на дальней стене
     let farOffset = gameRef.current.parallax[0] % 400;
     for (let x = -farOffset; x < VIRTUAL_WIDTH + 400; x += 400) {
       const tx = x + 150;
@@ -351,7 +383,6 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.moveTo(tx-4, ty+5); ctx.quadraticCurveTo(tx, ty-10-flicker, tx+4, ty+5); ctx.fill();
     }
 
-    // 3. Слой арок/колонн (Перекрывает дальнюю стену и факелы)
     let archOffset = gameRef.current.parallax[1] % 500;
     for (let x = -archOffset; x < VIRTUAL_WIDTH + 500; x += 500) {
       ctx.fillStyle = '#16131C';
@@ -366,7 +397,6 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // 4. Летающая пыль
     gameRef.current.ambientParticles.forEach(p => {
       ctx.fillStyle = '#EAB308';
       ctx.globalAlpha = p.opacity;
@@ -376,7 +406,6 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
-    // 5. Пол (С фиолетовой полосой)
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
     ctx.fillStyle = '#6226B3';
