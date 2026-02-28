@@ -46,10 +46,11 @@ const GameCanvas: React.FC = () => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [invulnerableUntil, setInvulnerableUntil] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
+  const [canvasSize, setCanvasSize] = useState({ width: 450, height: 800 });
   const lastRegenRef = useRef(0);
   const scoreSavedRef = useRef(false);
 
-  const VIRTUAL_WIDTH = 450;
+  // Константы для логики (высота остается фиксированной для физики)
   const VIRTUAL_HEIGHT = 800;
   const GROUND_Y = VIRTUAL_HEIGHT - 100;
   const PLAYER_X = 60;
@@ -83,6 +84,33 @@ const GameCanvas: React.FC = () => {
     collisionCooldown: 0,
   });
 
+  // Обработка изменения размера экрана
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        setCanvasSize({ width: clientWidth, height: clientHeight });
+        
+        // Обновляем частицы пыли под новую ширину
+        if (gameRef.current.ambientParticles.length === 0) {
+          for (let i = 0; i < 40; i++) {
+            gameRef.current.ambientParticles.push({
+              x: Math.random() * clientWidth, 
+              y: Math.random() * clientHeight,
+              speed: 0.2 + Math.random() * 0.5,
+              size: 1 + Math.random() * 2,
+              opacity: 0.2 + Math.random() * 0.4
+            });
+          }
+        }
+      }
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [combatLog]);
@@ -97,17 +125,6 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    gameRef.current.ambientParticles = [];
-    for (let i = 0; i < 40; i++) {
-      gameRef.current.ambientParticles.push({
-        x: Math.random() * VIRTUAL_WIDTH, 
-        y: Math.random() * VIRTUAL_HEIGHT,
-        speed: 0.2 + Math.random() * 0.5,
-        size: 1 + Math.random() * 2,
-        opacity: 0.2 + Math.random() * 0.4
-      });
-    }
-
     const img = new Image();
     img.src = '/Knight2.webp';
     img.onload = () => {
@@ -332,11 +349,15 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
+    const W = ctx.canvas.width;
+    const H = ctx.canvas.height;
+    
     ctx.fillStyle = '#050406';
-    ctx.fillRect(0, 0, VIRTUAL_WIDTH, GROUND_Y);
+    ctx.fillRect(0, 0, W, GROUND_Y);
 
+    // Слой 1: Дальняя стена и факелы
     let farOffset = gameRef.current.parallax[0] % 400;
-    for (let x = -farOffset; x < VIRTUAL_WIDTH + 400; x += 400) {
+    for (let x = -farOffset; x < W + 400; x += 400) {
       const tx = x + 150;
       const ty = 250;
       const flicker = Math.random() * 8;
@@ -351,8 +372,9 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.moveTo(tx-6, ty+8); ctx.quadraticCurveTo(tx, ty-15-flicker, tx+6, ty+8); ctx.fill();
     }
 
+    // Слой 2: Колонны и арки
     let archOffset = gameRef.current.parallax[1] % 500;
-    for (let x = -archOffset; x < VIRTUAL_WIDTH + 500; x += 500) {
+    for (let x = -archOffset; x < W + 500; x += 500) {
       ctx.fillStyle = '#16131C';
       const columnWidth = 140;
       const columnX = x + 180;
@@ -365,22 +387,27 @@ const GameCanvas: React.FC = () => {
       }
     }
 
+    // Слой 3: Пыль и частицы (на всю ширину)
     gameRef.current.ambientParticles.forEach(p => {
       ctx.fillStyle = '#EAB308';
       ctx.globalAlpha = p.opacity;
       ctx.fillRect(p.x, p.y, p.size, p.size);
       p.x -= p.speed * (engineRef.current.speed / 5);
-      if (p.x < -10) { p.x = VIRTUAL_WIDTH + 10; p.y = Math.random() * VIRTUAL_HEIGHT; }
+      if (p.x < -10) { 
+        p.x = W + 10; 
+        p.y = Math.random() * VIRTUAL_HEIGHT; 
+      }
     });
     ctx.globalAlpha = 1.0;
 
+    // Слой 4: Пол
     ctx.fillStyle = '#050406';
-    ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
+    ctx.fillRect(0, GROUND_Y, W, VIRTUAL_HEIGHT - GROUND_Y);
     ctx.fillStyle = '#6226B3';
-    ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, 4);
+    ctx.fillRect(0, GROUND_Y, W, 4);
     let floorOffset = gameRef.current.parallax[2] % 120;
     ctx.strokeStyle = '#1A1621'; ctx.lineWidth = 2;
-    for (let x = -floorOffset; x < VIRTUAL_WIDTH + 120; x += 120) {
+    for (let x = -floorOffset; x < W + 120; x += 120) {
       ctx.beginPath(); ctx.moveTo(x, GROUND_Y + 4); ctx.lineTo(x, VIRTUAL_HEIGHT); ctx.stroke();
     }
   };
@@ -391,9 +418,13 @@ const GameCanvas: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.clearRect(0, 0, W, H);
     drawBackground(ctx);
 
+    // Отрисовка частиц прыжков
     gameRef.current.particles.forEach((p, i) => {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
@@ -415,17 +446,18 @@ const GameCanvas: React.FC = () => {
 
     if (gameState === 'START') {
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
-      ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+      ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#6226B3';
       ctx.font = '14px "Press Start 2P"';
       ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2 - 50);
+      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', W / 2, H / 2 - 50);
     }
-  }, [gameState, invulnerableUntil, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, GROUND_Y]);
+  }, [gameState, invulnerableUntil, drawBackground]);
 
   const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
     if (gameState === 'PLAYING') {
       const dtFactor = deltaTime / 16.67;
+      const W = canvasRef.current?.width || 450;
       
       engineRef.current.elapsedTime += deltaTime / 1000;
       engineRef.current.speed = calculateSpeed(engineRef.current.elapsedTime);
@@ -454,6 +486,7 @@ const GameCanvas: React.FC = () => {
         lastRegenRef.current = timestamp;
       }
 
+      // Появление монстров за границей экрана (с учетом динамической ширины)
       if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
@@ -467,7 +500,7 @@ const GameCanvas: React.FC = () => {
           id: Math.random().toString(),
           type,
           obstacleType: config.type as any,
-          x: VIRTUAL_WIDTH + 150,
+          x: W + 150, // Всегда за правой границей
           y: yPos,
           width: config.width,
           height: config.height,
@@ -498,7 +531,7 @@ const GameCanvas: React.FC = () => {
       setScore(Math.floor(engineRef.current.distance));
     }
     draw();
-  }, [gameState, hp, maxHp, selectedClass, invulnerableUntil, addLog, takeDamage, heal, draw, GROUND_Y, VIRTUAL_WIDTH]);
+  }, [gameState, hp, maxHp, selectedClass, invulnerableUntil, addLog, takeDamage, heal, draw, GROUND_Y]);
 
   useGameLoop(handleUpdate, true);
 
@@ -560,19 +593,16 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      {/* Адаптивный контейнер игрового поля */}
+      {/* Полноэкранный контейнер игрового поля */}
       <div 
         ref={containerRef} 
         className={cn(
-          "relative flex-1 w-full max-w-[800px] mx-auto cursor-pointer overflow-hidden bg-black flex items-center justify-center",
+          "relative flex-1 w-full cursor-pointer overflow-hidden bg-black flex items-center justify-center",
           isShaking && "animate-shake"
         )} 
         onClick={handleInput}
       >
-        <div 
-          className="relative w-full h-full flex items-center justify-center"
-          style={{ aspectRatio: `${VIRTUAL_WIDTH} / ${VIRTUAL_HEIGHT}` }}
-        >
+        <div className="relative w-full h-full">
           {gameState === 'START' && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
               <Leaderboard />
@@ -592,12 +622,14 @@ const GameCanvas: React.FC = () => {
               </div>
             </div>
           )}
+          
           <canvas 
             ref={canvasRef} 
-            width={VIRTUAL_WIDTH} 
-            height={VIRTUAL_HEIGHT} 
-            className="image-pixelated max-w-full max-h-full object-contain block mx-auto" 
+            width={canvasSize.width} 
+            height={canvasSize.height} 
+            className="image-pixelated w-full h-full block" 
           />
+
           {gameState === 'GAME_OVER' && (
             <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center p-4">
               <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
@@ -610,7 +642,7 @@ const GameCanvas: React.FC = () => {
       </div>
 
       {/* Секция лога боя - фиксированная высота */}
-      <div className="w-full h-[34vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20 mx-auto" style={{ maxWidth: '800px' }}>
+      <div className="w-full h-[25vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20">
         {combatLog.map((log) => (
           <div key={log.id} className={cn("text-[8px] uppercase flex items-center gap-2", log.type === 'success' ? 'text-green-400' : log.type === 'fail' ? 'text-red-400' : 'text-gray-500')}>
             <Sword size={10} /> {log.text}
