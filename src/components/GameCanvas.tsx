@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -135,134 +134,193 @@ const GameCanvas: React.FC = () => {
       const hover = Math.sin(time * 0.003) * 8;
       const dy = y + hover;
 
+      // Тело с градиентом чешуи
       const bodyGrad = ctx.createLinearGradient(x, dy, x + width, dy + height);
-      bodyGrad.addColorStop(0, '#991B1B');
+      bodyGrad.addColorStop(0, '#B91C1C');
+      bodyGrad.addColorStop(0.5, '#7F1D1D');
       bodyGrad.addColorStop(1, '#450A0A');
       ctx.fillStyle = bodyGrad;
       
+      // Хвост
       ctx.beginPath();
       ctx.moveTo(x + width - 20, dy + height/2);
-      ctx.quadraticCurveTo(x + width + 50, dy + height/2 + Math.sin(time*0.004)*40, x + width + 20, dy + height - 10);
+      ctx.quadraticCurveTo(x + width + 50, dy + height/2 + Math.sin(time*0.004)*40, x + width + 35, dy + height - 10);
       ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 14; ctx.stroke();
+      ctx.fillStyle = '#450A0A'; ctx.beginPath(); ctx.moveTo(x+width+35, dy+height-10); ctx.lineTo(x+width+45, dy+height+5); ctx.lineTo(x+width+25, dy+height+5); ctx.fill();
 
-      ctx.fillStyle = '#450A0A';
+      // Крылья (Сложные)
       [ {ox: 30, sx: 1}, {ox: 10, sx: -1} ].forEach(wing => {
         ctx.save();
         ctx.translate(x + width/2 + wing.ox, dy + 40);
         ctx.scale(wing.sx, 1);
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(80, -60 - flap, 100, 20);
-        ctx.quadraticCurveTo(50, 40, 0, 10);
-        ctx.fill();
+        ctx.quadraticCurveTo(80, -70 - flap, 110, 20);
+        ctx.quadraticCurveTo(60, 50, 0, 15);
+        ctx.fillStyle = '#450A0A'; ctx.fill();
+        // Перепонки крыльев
+        ctx.strokeStyle = '#7F1D1D'; ctx.lineWidth = 2; ctx.stroke();
         ctx.restore();
       });
 
+      // Основное тело
       ctx.beginPath();
-      ctx.roundRect(x + 20, dy + 20, width - 40, height - 20, [30, 10, 10, 30]);
+      ctx.roundRect(x + 25, dy + 20, width - 50, height - 30, [30, 15, 15, 30]);
       ctx.fill();
 
+      // Шипы на спине
       ctx.fillStyle = '#1A0202';
-      for(let i=0; i<5; i++) {
+      for(let i=0; i<6; i++) {
         ctx.beginPath();
-        ctx.moveTo(x + 35 + i*18, dy + 20);
-        ctx.lineTo(x + 44 + i*18, dy + 2);
-        ctx.lineTo(x + 53 + i*18, dy + 20);
+        ctx.moveTo(x + 40 + i*15, dy + 20);
+        ctx.lineTo(x + 48 + i*15, dy + 5);
+        ctx.lineTo(x + 56 + i*15, dy + 20);
         ctx.fill();
       }
 
+      // Голова
       ctx.fillStyle = '#7F1D1D';
       ctx.beginPath();
-      ctx.roundRect(x - 10, dy + 10, 55, 45, [20, 5, 5, 20]);
+      ctx.roundRect(x - 5, dy + 5, 60, 50, [25, 8, 8, 25]);
       ctx.fill();
 
-      const eyeGlow = ctx.createRadialGradient(x+8, dy+25, 0, x+8, dy+25, 12);
+      // Светящийся глаз
+      const eyeGlow = ctx.createRadialGradient(x+12, dy+22, 0, x+12, dy+22, 14);
       eyeGlow.addColorStop(0, '#FDE047');
+      eyeGlow.addColorStop(0.6, '#EAB308');
       eyeGlow.addColorStop(1, 'transparent');
       ctx.fillStyle = eyeGlow;
-      ctx.beginPath(); ctx.arc(x+8, dy+25, 12, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+12, dy+22, 14, 0, Math.PI*2); ctx.fill();
 
-      const fireLen = 40 + Math.random() * 40;
-      const fireGrad = ctx.createRadialGradient(x-5, dy+30, 5, x-fireLen, dy+35, fireLen);
+      // Дыхание огнем (Многослойный градиент)
+      const fireLen = 50 + Math.random() * 60;
+      const fireGrad = ctx.createRadialGradient(x-5, dy+35, 5, x-fireLen, dy+40, fireLen);
       fireGrad.addColorStop(0, '#F59E0B');
       fireGrad.addColorStop(0.4, '#EF4444');
       fireGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = fireGrad;
       ctx.beginPath();
-      ctx.moveTo(x, dy + 25);
-      ctx.quadraticCurveTo(x - fireLen/2, dy + 10 + Math.sin(time*0.02)*20, x - fireLen, dy + 35);
-      ctx.quadraticCurveTo(x - fireLen/2, dy + 50 + Math.sin(time*0.02)*20, x, dy + 40);
+      ctx.moveTo(x+5, dy + 30);
+      ctx.quadraticCurveTo(x - fireLen/2, dy + 15 + Math.sin(time*0.02)*25, x - fireLen, dy + 40);
+      ctx.quadraticCurveTo(x - fireLen/2, dy + 55 + Math.sin(time*0.02)*25, x+5, dy + 45);
       ctx.fill();
 
     } else if (type === 'OGRE') {
+      // Тело огра
       ctx.fillStyle = '#166534';
-      ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 15); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 18); ctx.fill();
+      // Наплечник
       ctx.fillStyle = '#422006';
-      ctx.beginPath(); ctx.roundRect(x, y + 10, 30, 25, 8); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x - 2, y + 10, 35, 28, 8); ctx.fill();
+      // Голова с клыками
       ctx.fillStyle = '#14532D';
-      ctx.beginPath(); ctx.roundRect(x + 10, y, 40, 35, 10); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x + 10, y, 42, 38, 12); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.fillRect(x+15, y+28, 4, 6); ctx.fillRect(x+43, y+28, 4, 6);
       
+      // Шипованная дубина (Анимация замаха)
       ctx.save();
-      const clubSwing = Math.sin(time * 0.007) * 0.8;
-      ctx.translate(x + width - 5, y + 50);
+      const clubSwing = Math.sin(time * 0.007) * 0.9;
+      ctx.translate(x + width - 5, y + 55);
       ctx.rotate(clubSwing);
       ctx.fillStyle = '#422006';
-      ctx.fillRect(-4, -40, 12, 60);
+      ctx.fillRect(-5, -45, 14, 65);
       ctx.fillStyle = '#713F12';
-      ctx.beginPath(); ctx.arc(2, -40, 18, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 3;
-      for(let i=0; i<6; i++) {
-        const ang = (i * Math.PI * 2) / 6;
+      ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI*2); ctx.fill();
+      // Стальные шипы
+      ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
+      for(let i=0; i<8; i++) {
+        const ang = (i * Math.PI * 2) / 8;
         ctx.beginPath();
-        ctx.moveTo(2 + Math.cos(ang)*15, -40 + Math.sin(ang)*15);
-        ctx.lineTo(2 + Math.cos(ang)*24, -40 + Math.sin(ang)*24);
+        ctx.moveTo(2 + Math.cos(ang)*15, -45 + Math.sin(ang)*15);
+        ctx.lineTo(2 + Math.cos(ang)*28, -45 + Math.sin(ang)*28);
         ctx.stroke();
       }
       ctx.restore();
 
     } else if (type === 'MIMIC') {
-      const snap = Math.sin(time * 0.015) * 10;
+      const snap = Math.sin(time * 0.018) * 12;
+      // Сундук
       ctx.fillStyle = '#261102';
-      ctx.beginPath(); ctx.roundRect(x, y + 10, width, height - 10, 6); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(x, y + 12, width, height - 12, 8); ctx.fill();
+      // Текстура дерева
       ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 2;
-      for(let i=1; i<3; i++) {
-        ctx.beginPath(); ctx.moveTo(x + i*(width/3), y + 12); ctx.lineTo(x + i*(width/3), y + height); ctx.stroke();
+      for(let i=1; i<4; i++) {
+        ctx.beginPath(); ctx.moveTo(x + i*(width/4), y + 14); ctx.lineTo(x + i*(width/4), y + height); ctx.stroke();
       }
+      // Ковка
       ctx.fillStyle = '#A16207';
-      ctx.fillRect(x, y + 10, 8, height - 10);
-      ctx.fillRect(x + width - 8, y + 10, 8, height - 10);
+      ctx.fillRect(x, y + 12, 10, height - 12);
+      ctx.fillRect(x + width - 10, y + 12, 10, height - 12);
       
-      for(let i=0; i<4; i++) {
-        const ex = x + 8 + i*10;
-        const ey = y + 20 + Math.sin(time*0.012 + i)*5;
-        ctx.fillStyle = '#EAB308'; ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(ex, ey, 1.5, 0, Math.PI*2); ctx.fill();
+      // Жуткие глаза в щели
+      for(let i=0; i<5; i++) {
+        const ex = x + 10 + i*9;
+        const ey = y + 22 + Math.sin(time*0.015 + i)*6;
+        ctx.fillStyle = '#EAB308'; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI*2); ctx.fill();
       }
 
+      // Язык с капельками слизи
       ctx.fillStyle = '#BE123C';
       ctx.beginPath();
-      ctx.moveTo(x + width/2, y + 30);
-      ctx.quadraticCurveTo(x + width + 30 + snap, y + 15 + Math.sin(time*0.015)*25, x + width/2, y + 45);
+      ctx.moveTo(x + width/2, y + 35);
+      ctx.quadraticCurveTo(x + width + 40 + snap, y + 20 + Math.sin(time*0.02)*30, x + width/2, y + 50);
       ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(x+width+30+snap, y+35, 3, 0, Math.PI*2); ctx.fill();
 
+      // Зубы
       ctx.fillStyle = '#F8FAFC';
-      for(let i=0; i<8; i++) {
-        const tx = x + 2 + i*6;
-        ctx.beginPath(); ctx.moveTo(tx, y + 10); ctx.lineTo(tx + 3, y + 22 + snap); ctx.lineTo(tx + 6, y + 10); ctx.fill();
+      for(let i=0; i<10; i++) {
+        const tx = x + 2 + i*5;
+        ctx.beginPath(); ctx.moveTo(tx, y + 12); ctx.lineTo(tx + 2.5, y + 26 + snap); ctx.lineTo(tx + 5, y + 12); ctx.fill();
       }
     } else if (type === 'SLIME') {
-      const wobble = Math.sin(time * 0.01) * 8;
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.4)'; 
+      const wobble = Math.sin(time * 0.01) * 10;
+      // Полупрозрачное тело
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)'; 
       ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(21, 128, 61, 0.8)'; 
-      ctx.beginPath(); ctx.arc(x + width/2, y + height - 15, 8, 0, Math.PI*2); ctx.fill();
+      // Ядро
+      ctx.fillStyle = 'rgba(21, 128, 61, 0.9)'; 
+      ctx.beginPath(); ctx.arc(x + width/2, y + height - 18, 10, 0, Math.PI*2); ctx.fill();
+      // Пузырьки
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath(); ctx.arc(x + width/2 - 10, y + height - 25 + wobble, 3, 0, Math.PI*2); ctx.fill();
     } else if (type === 'BEHOLDER') {
-      const float = Math.sin(time * 0.005) * 12;
+      const float = Math.sin(time * 0.005) * 15;
       const fy = y + float;
+      // Тело
       ctx.fillStyle = '#6D102A';
       ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
+      // Щупальца с глазами
+      ctx.strokeStyle = '#6D102A'; ctx.lineWidth = 4;
+      for(let i=0; i<6; i++) {
+        const ang = (i * Math.PI) / 3;
+        const tx = x + width/2 + Math.cos(ang) * 40;
+        const ty = fy + height/2 + Math.sin(ang) * 40;
+        ctx.beginPath(); ctx.moveTo(x+width/2, fy+height/2); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(tx, ty, 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI*2); ctx.fill();
+      }
+      // Центральный глаз
       ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.003)*5, fy + height/2 + Math.sin(time*0.003)*3, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.004)*8, fy + height/2 + Math.sin(time*0.004)*5, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.004)*8, fy + height/2 + Math.sin(time*0.004)*5, 3, 0, Math.PI * 2); ctx.fill();
+    } else if (type === 'GHOST') {
+      const hover = Math.sin(time * 0.006) * 10;
+      ctx.globalAlpha = 0.6 + Math.sin(time*0.01)*0.2;
+      ctx.fillStyle = '#F1F5F9';
+      ctx.beginPath();
+      ctx.moveTo(x + width/2, y + hover);
+      ctx.quadraticCurveTo(x + width, y + hover, x + width, y + height/2 + hover);
+      ctx.quadraticCurveTo(x + width, y + height + hover + Math.sin(time*0.01)*10, x + width/2, y + height - 10 + hover);
+      ctx.quadraticCurveTo(x, y + height + hover + Math.sin(time*0.01)*10, x, y + height/2 + hover);
+      ctx.quadraticCurveTo(x, y + hover, x + width/2, y + hover);
+      ctx.fill();
+      // Светящиеся глаза
+      ctx.fillStyle = '#0EA5E9';
+      ctx.beginPath(); ctx.arc(x+15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x+width-15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1.0;
     } else {
       ctx.fillStyle = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS]?.color || 'red';
       ctx.fillRect(x, y, width, height);
@@ -272,11 +330,11 @@ const GameCanvas: React.FC = () => {
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
-    // 1. Самый дальний слой: Темная стена
+    // 1. Дальняя стена
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, 0, VIRTUAL_WIDTH, GROUND_Y);
 
-    // 2. Факелы на дальней стене (движутся со скоростью дальней стены)
+    // 2. Факелы на дальней стене
     let farOffset = gameRef.current.parallax[0] % 400;
     for (let x = -farOffset; x < VIRTUAL_WIDTH + 400; x += 400) {
       const tx = x + 150;
@@ -293,27 +351,22 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.moveTo(tx-4, ty+5); ctx.quadraticCurveTo(tx, ty-10-flicker, tx+4, ty+5); ctx.fill();
     }
 
-    // 3. Слой арок/колонн (движется быстрее, перекрывает факелы)
+    // 3. Слой арок/колонн (Перекрывает дальнюю стену и факелы)
     let archOffset = gameRef.current.parallax[1] % 500;
     for (let x = -archOffset; x < VIRTUAL_WIDTH + 500; x += 500) {
       ctx.fillStyle = '#16131C';
-      // Сама колонна
       const columnWidth = 140;
       const columnX = x + 180;
-      
-      // Рисуем арку
       ctx.beginPath();
       ctx.roundRect(columnX, 100, columnWidth, GROUND_Y - 100, [70, 70, 0, 0]);
       ctx.fill();
-      
-      // Небольшая текстура на колонне
       ctx.strokeStyle = '#1E1A26'; ctx.lineWidth = 1;
       for(let i=0; i<5; i++) {
         ctx.beginPath(); ctx.moveTo(columnX + 20, 250 + i*80); ctx.lineTo(columnX + columnWidth - 20, 250 + i*80); ctx.stroke();
       }
     }
 
-    // 4. Летающая пыль (между арками и игроком)
+    // 4. Летающая пыль
     gameRef.current.ambientParticles.forEach(p => {
       ctx.fillStyle = '#EAB308';
       ctx.globalAlpha = p.opacity;
@@ -323,15 +376,11 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
-    // 5. Пол (в стиле скриншота)
+    // 5. Пол (С фиолетовой полосой)
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - GROUND_Y);
-    
-    // Фиолетовая линия по верху пола
     ctx.fillStyle = '#6226B3';
     ctx.fillRect(0, GROUND_Y, VIRTUAL_WIDTH, 4);
-    
-    // Вертикальные линии разделения пола
     let floorOffset = gameRef.current.parallax[2] % 120;
     ctx.strokeStyle = '#1A1621'; ctx.lineWidth = 2;
     for (let x = -floorOffset; x < VIRTUAL_WIDTH + 120; x += 120) {
@@ -385,9 +434,9 @@ const GameCanvas: React.FC = () => {
       engineRef.current.speed = calculateSpeed(engineRef.current.elapsedTime);
       const currentSpeed = engineRef.current.speed;
 
-      gameRef.current.parallax[0] += currentSpeed * 0.3 * dtFactor; // Стена (Факелы)
-      gameRef.current.parallax[1] += currentSpeed * 0.7 * dtFactor; // Арки (Перекрывают)
-      gameRef.current.parallax[2] += currentSpeed * 1.0 * dtFactor; // Пол
+      gameRef.current.parallax[0] += currentSpeed * 0.3 * dtFactor; 
+      gameRef.current.parallax[1] += currentSpeed * 0.7 * dtFactor; 
+      gameRef.current.parallax[2] += currentSpeed * 1.0 * dtFactor; 
 
       const { player, monsters } = gameRef.current;
       player.vy += GRAVITY * dtFactor;
