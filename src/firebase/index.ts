@@ -1,3 +1,5 @@
+//src/firebase/index.ts
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
