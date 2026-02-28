@@ -40,7 +40,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://*.telegram.org https://moraleon.vercel.app",
+            value: "frame-ancestors 'self' https://*.telegram.org https://health-throne.vercel.app",
           },
         ],
       },
