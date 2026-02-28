@@ -27,7 +27,7 @@
       "headers": {
         "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Content-Security-Policy": "frame-ancestors 'self' https://*.telegram.org;"
+        "Content-Security-Policy": "frame-ancestors 'self' https://*.telegram.org https://health-throne.vercel.app;"
       }
     }
   ],
