@@ -36,7 +36,7 @@ interface Coin {
   width: number;
   height: number;
   collected: boolean;
-  frame: number; // Для простой анимации "покачивания"
+  frame: number;
 }
 
 const GameCanvas: React.FC = () => {
@@ -50,7 +50,7 @@ const GameCanvas: React.FC = () => {
 
   const [gameState, setGameState] = useState<GameStatus>('START');
   const [score, setScore] = useState(0);
-  const [collectedCoins, setCollectedCoins] = useState(0); // !!! ДОБАВИЛИ ЭТОТ СТЕЙТ
+  const [collectedCoins, setCollectedCoins] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [invulnerableUntil, setInvulnerableUntil] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
@@ -525,6 +525,7 @@ const GameCanvas: React.FC = () => {
       }
 
       // СПАВН МОНЕТ пачками
+      const coins = gameRef.current.coins; // локальная ссылка для удобства
       if (Math.random() < 0.015 * dtFactor) {
         const startX = W + 100;
         const targetY = Math.random() > 0.6 ? GROUND_Y - 40 : GROUND_Y - 140;
@@ -539,6 +540,21 @@ const GameCanvas: React.FC = () => {
         }
       }
 
+      // ЛОГИКА МОНЕТ
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const c = coins[i];
+        c.x -= currentSpeed * dtFactor;
+        c.frame += 0.1;
+        if (!c.collected && checkCollision(player, 5, c, 5)) {
+          c.collected = true;
+          engineRef.current.collectedCoins += 1;
+          setCollectedCoins(engineRef.current.collectedCoins);
+          createParticleEffect(c.x + 10, c.y + 10, '#EAB308', 8);
+        }
+        if (c.x < -100 || c.collected) coins.splice(i, 1);
+      }
+
+      // СПАВН МОНСТРОВ
       if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
@@ -561,18 +577,7 @@ const GameCanvas: React.FC = () => {
         gameRef.current.collisionCooldown = timestamp;
       }
 
-      // ЛОГИКА МОНЕТ
-      for (let i = coins.length - 1; i >= 0; i--) {
-        const c = coins[i]; c.x -= currentSpeed * dtFactor; c.frame += 0.1;
-        if (!c.collected && checkCollision(player, 5, c, 5)) {
-          c.collected = true;
-          engineRef.current.collectedCoins += 1;
-          setCollectedCoins(engineRef.current.collectedCoins);
-          createParticleEffect(c.x + 10, c.y + 10, '#EAB308', 8);
-        }
-        if (c.x < -100 || c.collected) coins.splice(i, 1);
-      }
-
+      // ОБРАБОТКА МОНСТРОВ
       for (let i = monsters.length - 1; i >= 0; i--) {
         const m = monsters[i];
         m.x -= currentSpeed * dtFactor;
@@ -591,6 +596,7 @@ const GameCanvas: React.FC = () => {
         }
         if (m.x + m.width < -200) monsters.splice(i, 1);
       }
+
       if (hp <= 0) setGameState('GAME_OVER');
       setScore(Math.floor(engineRef.current.distance));
     }
@@ -680,10 +686,13 @@ const GameCanvas: React.FC = () => {
                 ))}
               </div>
               <div className="text-right">
-                 <div className="text-[10px] text-primary font-bold">{score}м</div>
-                 <div className="text-[7px] text-secondary opacity-60 uppercase">{selectedClass?.label}</div>
-                <div className="text-[9px] text-yellow-400 font-bold">💰 {engineRef.current.collectedCoins}</div>
-                <div className="text-[7px] text-secondary opacity-60 uppercase">{selectedClass?.label}</div>
+                <div className="flex items-center justify-end gap-2 text-[10px]">
+                  <span className="text-primary font-bold">{score}м</span>
+                  <span className="text-yellow-400 font-bold">💰 {collectedCoins}</span>
+                </div>
+                <div className="text-[7px] text-secondary opacity-60 uppercase">
+                  {selectedClass?.label}
+                </div>
               </div>
             </div>
           )}
