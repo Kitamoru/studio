@@ -159,8 +159,8 @@ const GameCanvas: React.FC = () => {
 
     try {
       const payload = initData
-        ? { initData, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null }
-        : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null };
+        ? { initData, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null }
+        : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null };
       
       await fetch('/api/game/score', {
         method: 'POST',
