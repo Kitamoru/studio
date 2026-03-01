@@ -3,11 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { validateTelegramInitData, extractTelegramUser } from '@/lib/telegramAuth';
 
 // GET /api/game/score?telegramId=123
-// Возвращает топ-10 и личный рекорд пользователя
 export async function GET(req: NextRequest) {
   const telegramId = req.nextUrl.searchParams.get('telegramId');
 
-  // Топ-10 глобальных рекордов (лучший результат каждого пользователя)
+  // Топ-10 глобальных рекордов
   const topScores = await prisma.$queryRaw<
     { telegram_id: bigint; username: string; character_class: string | null; best_score: number }[]
   >`
@@ -21,7 +20,6 @@ export async function GET(req: NextRequest) {
     LIMIT 10
   `;
 
-  // Нормализуем BigInt для JSON
   const normalizedTop = topScores
     .sort((a, b) => b.best_score - a.best_score)
     .map((r, index) => ({
@@ -32,7 +30,6 @@ export async function GET(req: NextRequest) {
       score: r.best_score,
     }));
 
-  // Личный рекорд и ранк пользователя
   let personalBest = null;
 
   if (telegramId) {
@@ -42,7 +39,6 @@ export async function GET(req: NextRequest) {
     });
 
     if (userBest) {
-      // Считаем сколько уникальных игроков лучше пользователя
       const betterPlayersCount = await prisma.$queryRaw<{ count: bigint }[]>`
         SELECT COUNT(DISTINCT telegram_id) as count
         FROM game_scores
@@ -62,55 +58,80 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/game/score
-// Сохраняет результат после окончания игры
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { initData, telegramId: directTelegramId, username: directUsername, score, characterClass } = body;
+  try {
+    const body = await req.json();
+    const { 
+      initData, 
+      telegramId: directTelegramId, 
+      username: directUsername, 
+      score, 
+      coins, // Получаем монеты из игры
+      characterClass 
+    } = body;
 
-  let telegramId: number;
-  let displayName: string;
+    let telegramId: number;
+    let displayName: string;
 
-  if (initData) {
-    // Обычный запуск — валидируем через Telegram initData
-    const isValid = validateTelegramInitData(initData);
-    if (!isValid) {
+    // Валидация данных
+    if (initData) {
+      const isValid = validateTelegramInitData(initData);
+      if (!isValid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      
+      const tgUser = extractTelegramUser(initData);
+      if (!tgUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      
+      telegramId = tgUser.id;
+      displayName = tgUser.username || [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'Аноним';
+    } else if (directTelegramId) {
+      telegramId = Number(directTelegramId);
+      displayName = directUsername || 'Аноним';
+    } else {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const tgUser = extractTelegramUser(initData);
-    if (!tgUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // ТРАНЗАКЦИЯ: Сохраняем счет и обновляем баланс пользователя одновременно
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Проверяем наличие пользователя
+      const user = await tx.users.findUnique({
+        where: { telegram_id: BigInt(telegramId) },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // 2. Создаем запись в истории игр (game_scores)
+      const newGameScore = await tx.game_scores.create({
+        data: {
+          user_id: user.id,
+          telegram_id: BigInt(telegramId),
+          username: displayName,
+          score: score,
+          coins: Number(coins) || 0, // Сохраняем результат за забег
+          character_class: characterClass ?? user.character_class,
+        },
+      });
+
+      // 3. Начисляем золото пользователю в таблицу users
+      await tx.users.update({
+        where: { id: user.id },
+        data: {
+          coins: {
+            increment: Number(coins) || 0 // Атомарно увеличиваем текущий баланс
+          }
+        }
+      });
+
+      return newGameScore;
+    });
+
+    return NextResponse.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error('API Error:', error);
+    if (error.message === 'User not found') {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    const { id, username, first_name, last_name } = tgUser;
-    telegramId = id;
-    displayName = username || [first_name, last_name].filter(Boolean).join(' ') || 'Аноним';
-  } else if (directTelegramId) {
-    // iframe режим — telegramId передан напрямую из Moraleon
-    // Безопасно: пользователь уже аутентифицирован в Moraleon
-    telegramId = Number(directTelegramId);
-    displayName = directUsername || 'Аноним';
-  } else {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-
-  // Находим или создаём пользователя (он уже должен существовать через Moraleon)
-  const user = await prisma.users.findUnique({
-    where: { telegram_id: BigInt(telegramId) },
-  });
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  }
-
-  // Сохраняем результат
-  await prisma.game_scores.create({
-    data: {
-      user_id: user.id,
-      telegram_id: BigInt(telegramId),
-      username: displayName,
-      score,
-      character_class: characterClass ?? user.character_class,
-    },
-  });
-
-  return NextResponse.json({ success: true });
 }
