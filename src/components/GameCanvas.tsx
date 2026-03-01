@@ -50,6 +50,7 @@ const GameCanvas: React.FC = () => {
 
   const [gameState, setGameState] = useState<GameStatus>('START');
   const [score, setScore] = useState(0);
+  const [collectedCoins, setCollectedCoins] = useState(0); // !!! ДОБАВИЛИ ЭТОТ СТЕЙТ
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [invulnerableUntil, setInvulnerableUntil] = useState(0);
   const [isShaking, setIsShaking] = useState(false);
@@ -157,9 +158,9 @@ const GameCanvas: React.FC = () => {
 
     try {
       const payload = initData
-        ? { initData, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null }
+        ? { initData, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null }
         : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null };
-
+      
       await fetch('/api/game/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,6 +177,18 @@ const GameCanvas: React.FC = () => {
       saveScore();
     }
   }, [gameState, saveScore]);
+
+  const createParticleEffect = (x: number, y: number, color: string, count = 10) => {
+    for (let i = 0; i < count; i++) {
+      gameRef.current.particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8,
+        life: 1.0,
+        color
+      });
+    }
+  };
 
   const createJumpEffect = (x: number, y: number, color = '#6226B3', isSecond = false) => {
     const count = isSecond ? 15 : 10;
