@@ -114,7 +114,7 @@ npm install
 3. **Переменные окружения**
 ```env
 DATABASE_URL=your_supabase_postgresql_connection_string
-TELEGRAM_TOKEN=your_telegram_bot_token
+TOKEN=your_telegram_bot_token
 ```
 
 4. **Генерация Prisma клиента**
