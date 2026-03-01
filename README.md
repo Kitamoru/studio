@@ -91,7 +91,7 @@ tg.openTelegramLink('https://t.me/MoraleonBot/dungeonrun');
 
 - **Frontend**: Next.js 15, React 19, TypeScript
 - **Styling**: Tailwind CSS, Shadcn UI, Radix UI
-- **Database**: Supabase PostgreSQL (общая с Moraleon)
+- **Database**: Supabase PostgreSQL 
 - **ORM**: Prisma 5.22
 - **Auth**: Telegram WebApp initData (HMAC валидация)
 - **Deploy**: Vercel
@@ -114,7 +114,7 @@ npm install
 3. **Переменные окружения**
 ```env
 DATABASE_URL=your_supabase_postgresql_connection_string
-TOKEN=your_telegram_bot_token
+TELEGRAM_TOKEN=your_telegram_bot_token
 ```
 
 4. **Генерация Prisma клиента**
@@ -155,7 +155,7 @@ model game_scores {
 | Переменная | Описание |
 |-----------|----------|
 | `DATABASE_URL` | Строка подключения Supabase PostgreSQL |
-| `TELEGRAM_TOKEN` | Токен бота для валидации initData |
+| `_TOKEN` | Токен бота для валидации initData |
 
 ---
 
