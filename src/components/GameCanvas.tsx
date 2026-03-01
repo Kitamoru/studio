@@ -25,8 +25,10 @@ interface AmbientParticle {
   x: number;
   y: number;
   speed: number;
+  vy: number; // легкое вертикальное движение
   size: number;
-  opacity: number;
+  baseOpacity: number; // базовая прозрачность
+  phase: number; // фаза для мерцания
 }
 
 interface Coin {
@@ -65,7 +67,7 @@ const GameCanvas: React.FC = () => {
   const GRAVITY = 0.65;
   const JUMP_STRENGTH = -14;
 
-  const engineRef = useRef<EngineState>({
+  const engineRef = useRef<EngineState & { collectedCoins: number }>({
     speed: 5.0,
     distance: 0,
     status: 'START',
@@ -75,16 +77,16 @@ const GameCanvas: React.FC = () => {
   });
 
   const gameRef = useRef({
-    player: { 
-      x: PLAYER_X, 
-      y: GROUND_Y - ASSET_MANIFEST.PLAYER.height, 
-      width: ASSET_MANIFEST.PLAYER.width, 
-      height: ASSET_MANIFEST.PLAYER.height, 
-      vy: 0, 
-      state: 'RUNNING', 
-      jumpsRemaining: 1, 
+    player: {
+      x: PLAYER_X,
+      y: GROUND_Y - ASSET_MANIFEST.PLAYER.height,
+      width: ASSET_MANIFEST.PLAYER.width,
+      height: ASSET_MANIFEST.PLAYER.height,
+      vy: 0,
+      state: 'RUNNING',
+      jumpsRemaining: 1,
       maxJumps: 1,
-      frame: 0 
+      frame: 0
     } as Player,
     monsters: [] as Monster[],
     coins: [] as Coin[],
@@ -94,21 +96,24 @@ const GameCanvas: React.FC = () => {
     collisionCooldown: 0,
   });
 
-  // Обработка изменения размера экрана
+  // Обработка изменения размера экрана и инициализация пыли
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
         const { clientWidth, clientHeight } = containerRef.current;
         setCanvasSize({ width: clientWidth, height: clientHeight });
-        
+
+        // Инициализация мерцающей пыли
         if (gameRef.current.ambientParticles.length === 0) {
-          for (let i = 0; i < 40; i++) {
+          for (let i = 0; i < 60; i++) {
             gameRef.current.ambientParticles.push({
-              x: Math.random() * clientWidth, 
-              y: Math.random() * clientHeight,
-              speed: 0.2 + Math.random() * 0.5,
-              size: 1 + Math.random() * 2,
-              opacity: 0.2 + Math.random() * 0.4
+              x: Math.random() * clientWidth,
+              y: Math.random() * GROUND_Y, // пыль летает только над полом
+              speed: 0.1 + Math.random() * 0.4,
+              vy: (Math.random() - 0.5) * 0.2, // легкое покачивание по вертикали
+              size: 0.5 + Math.random() * 2.5,
+              baseOpacity: 0.1 + Math.random() * 0.4,
+              phase: Math.random() * Math.PI * 2
             });
           }
         }
@@ -118,7 +123,7 @@ const GameCanvas: React.FC = () => {
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
-  }, []);
+  }, [GROUND_Y]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -131,7 +136,6 @@ const GameCanvas: React.FC = () => {
       tg.expand();
       tg.headerColor = '#0D0B12';
 
-      // Кнопка "Назад" — возврат в Moraleon
       tg.BackButton.show();
       tg.BackButton.onClick(() => tg.close());
 
@@ -152,8 +156,6 @@ const GameCanvas: React.FC = () => {
   }, []);
 
   const saveScore = useCallback(async () => {
-    console.log('Saving score with coins:', engineRef.current.collectedCoins);
-    console.log('saveScore called', { initData, user, scoreSaved: scoreSavedRef.current });
     if (scoreSavedRef.current || (!initData && !user)) return;
     scoreSavedRef.current = true;
 
@@ -161,7 +163,7 @@ const GameCanvas: React.FC = () => {
       const payload = initData
         ? { initData, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null }
         : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null };
-      
+
       await fetch('/api/game/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -206,80 +208,173 @@ const GameCanvas: React.FC = () => {
     }
   };
 
+  // --- УЛУЧШЕННЫЙ ДРАКОН ---
+  const drawDragon = (ctx: CanvasRenderingContext2D, x: number, dy: number, width: number, height: number, time: number) => {
+    const flap = Math.sin(time * 0.005) * 35;
+
+    // Градиент тела
+    const bodyGrad = ctx.createLinearGradient(x, dy, x + width, dy + height);
+    bodyGrad.addColorStop(0, '#B91C1C');
+    bodyGrad.addColorStop(0.5, '#7F1D1D');
+    bodyGrad.addColorStop(1, '#450A0A');
+    ctx.fillStyle = bodyGrad;
+
+    // Хвост
+    ctx.beginPath();
+    ctx.moveTo(x + width - 20, dy + height/2);
+    ctx.quadraticCurveTo(
+      x + width + 40 + Math.sin(time*0.004)*10,
+      dy + height/2 + Math.cos(time*0.002)*30,
+      x + width + 30,
+      dy + height - 10
+    );
+    ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.fillStyle = '#450A0A'; ctx.beginPath();
+    ctx.moveTo(x+width+30, dy+height-10); ctx.lineTo(x+width+40, dy+height+5); ctx.lineTo(x+width+20, dy+height+5); ctx.fill();
+
+    // Крылья
+    [ {ox: 35, sx: 1, color: '#7F1D1D'}, {ox: 15, sx: -1, color: '#B91C1C'} ].forEach(wing => {
+      ctx.save();
+      ctx.translate(x + width/2 + wing.ox, dy + 40);
+      ctx.scale(wing.sx, 1);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(80, -70 - flap, 110, 20);
+      ctx.quadraticCurveTo(60, 50, 0, 15);
+      ctx.fillStyle = wing.color; ctx.fill();
+      ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(110, 20); ctx.stroke();
+      ctx.restore();
+    });
+
+    // Тело
+    ctx.beginPath();
+    for(let i=0; i<5; i++) {
+      ctx.roundRect(x + 20 + i*15, dy + 15 + i*2, 20, height - 30, 5);
+    }
+    ctx.fill();
+
+    // Шипы на спине
+    ctx.fillStyle = '#1A0202';
+    for(let i=0; i<6; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x + 35 + i*15, dy + 18);
+      ctx.lineTo(x + 43 + i*15, dy + 2);
+      ctx.lineTo(x + 51 + i*15, dy + 18);
+      ctx.fill();
+    }
+
+    // Голова
+    ctx.fillStyle = '#7F1D1D';
+    ctx.beginPath();
+    ctx.roundRect(x - 10, dy + 5, 65, 50, [25, 10, 10, 25]);
+    ctx.fill();
+
+    // Рога
+    ctx.fillStyle = '#EAB308';
+    ctx.beginPath(); ctx.moveTo(x+20, dy+5); ctx.lineTo(x+30, dy-15); ctx.lineTo(x+40, dy+5); ctx.fill();
+
+    // Глаз
+    const eyeGlow = ctx.createRadialGradient(x+15, dy+22, 0, x+15, dy+22, 12);
+    eyeGlow.addColorStop(0, '#FFF176');
+    eyeGlow.addColorStop(0.6, '#F9A825');
+    eyeGlow.addColorStop(1, 'transparent');
+    ctx.fillStyle = eyeGlow;
+    ctx.beginPath(); ctx.arc(x+15, dy+22, 10, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'black'; ctx.fillRect(x+14, dy+16, 2, 12);
+
+    // Пламя
+    const fireLen = 60 + Math.random() * 60;
+    const fireGrad = ctx.createRadialGradient(x-5, dy+35, 5, x-fireLen, dy+40, fireLen);
+    fireGrad.addColorStop(0, '#FFFFFF');
+    fireGrad.addColorStop(0.2, '#F59E0B');
+    fireGrad.addColorStop(0.5, '#EF4444');
+    fireGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = fireGrad;
+    ctx.beginPath();
+    ctx.moveTo(x+5, dy + 28);
+    ctx.quadraticCurveTo(
+      x - fireLen/2,
+      dy + 15 + Math.sin(time*0.02)*20,
+      x - fireLen,
+      dy + 38
+    );
+    ctx.quadraticCurveTo(
+      x - fireLen/2,
+      dy + 55 + Math.cos(time*0.02)*20,
+      x+5,
+      dy + 42
+    );
+    ctx.fill();
+  };
+
+  // --- УЛУЧШЕННЫЙ ОГР ---
+  const drawOgre = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, time: number) => {
+    ctx.fillStyle = '#166534';
+    ctx.beginPath();
+    ctx.roundRect(x + 5, y + 20, width - 10, height - 20, 20);
+    ctx.fill();
+
+    ctx.fillStyle = '#14532D';
+    ctx.beginPath(); ctx.arc(x + 10, y + 35, 18, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#15803d';
+    ctx.beginPath(); ctx.ellipse(x + width/2, y + height - 25, 20, 15, 0, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#166534';
+    ctx.beginPath();
+    ctx.roundRect(x + 10, y, 45, 40, [15, 15, 5, 5]);
+    ctx.fill();
+
+    ctx.fillStyle = '#052e16'; ctx.fillRect(x+18, y+12, 30, 4);
+
+    ctx.fillStyle = 'red';
+    ctx.beginPath(); ctx.arc(x+25, y+20, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+40, y+20, 3, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#F8FAFC';
+    ctx.beginPath(); ctx.moveTo(x+20, y+32); ctx.lineTo(x+24, y+24); ctx.lineTo(x+28, y+32); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x+40, y+32); ctx.lineTo(x+44, y+24); ctx.lineTo(x+48, y+32); ctx.fill();
+
+    // Дубина
+    ctx.save();
+    const clubSwing = Math.sin(time * 0.007) * 0.9;
+    ctx.translate(x + width - 5, y + 55);
+    ctx.rotate(clubSwing);
+
+    ctx.fillStyle = '#422006';
+    ctx.fillRect(-5, -45, 14, 65);
+    ctx.fillStyle = '#54300a'; ctx.fillRect(-2, -40, 2, 55);
+
+    ctx.fillStyle = '#713F12'; ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI*2); ctx.fill();
+
+    ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
+    for(let i=0; i<8; i++) {
+      const ang = (i * Math.PI * 2) / 8;
+      ctx.beginPath();
+      ctx.moveTo(2 + Math.cos(ang)*15, -45 + Math.sin(ang)*15);
+      ctx.lineTo(2 + Math.cos(ang)*30, -45 + Math.sin(ang)*30);
+      ctx.stroke();
+      ctx.strokeStyle = 'white'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(2 + Math.cos(ang)*22, -45 + Math.sin(ang)*22);
+      ctx.lineTo(2 + Math.cos(ang)*28, -45 + Math.sin(ang)*28);
+      ctx.stroke();
+      ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
+    }
+    ctx.restore();
+  };
+
   const drawMonster = (ctx: CanvasRenderingContext2D, m: Monster) => {
     const { x, y, width, height, type } = m;
     const time = Date.now();
     ctx.save();
-    
+
     if (type === 'DRAGON') {
-      const flap = Math.sin(time * 0.005) * 35;
       const hover = Math.sin(time * 0.003) * 8;
-      const dy = y + hover;
-
-      const bodyGrad = ctx.createLinearGradient(x, dy, x + width, dy + height);
-      bodyGrad.addColorStop(0, '#B91C1C');
-      bodyGrad.addColorStop(0.5, '#7F1D1D');
-      bodyGrad.addColorStop(1, '#450A0A');
-      ctx.fillStyle = bodyGrad;
-      
-      ctx.beginPath();
-      ctx.moveTo(x + width - 20, dy + height/2);
-      ctx.quadraticCurveTo(x + width + 50, dy + height/2 + Math.sin(time*0.004)*40, x + width + 35, dy + height - 10);
-      ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 14; ctx.stroke();
-      ctx.fillStyle = '#450A0A'; ctx.beginPath(); ctx.moveTo(x+width+35, dy+height-10); ctx.lineTo(x+width+45, dy+height+5); ctx.lineTo(x+width+25, dy+height+5); ctx.fill();
-
-      [ {ox: 30, sx: 1}, {ox: 10, sx: -1} ].forEach(wing => {
-        ctx.save();
-        ctx.translate(x + width/2 + wing.ox, dy + 40);
-        ctx.scale(wing.sx, 1);
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(80, -70 - flap, 110, 20);
-        ctx.quadraticCurveTo(60, 50, 0, 15);
-        ctx.fillStyle = 'rgba(69, 10, 10, 0.9)'; ctx.fill();
-        ctx.strokeStyle = '#7F1D1D'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(110, 20); ctx.stroke();
-        ctx.restore();
-      });
-
-      ctx.beginPath();
-      ctx.roundRect(x + 25, dy + 20, width - 50, height - 30, [30, 15, 15, 30]);
-      ctx.fill();
-
-      ctx.fillStyle = '#1A0202';
-      for(let i=0; i<6; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x + 40 + i*15, dy + 20);
-        ctx.lineTo(x + 48 + i*15, dy + 5);
-        ctx.lineTo(x + 56 + i*15, dy + 20);
-        ctx.fill();
-      }
-
-      ctx.fillStyle = '#7F1D1D';
-      ctx.beginPath();
-      ctx.roundRect(x - 5, dy + 5, 60, 50, [25, 8, 8, 25]);
-      ctx.fill();
-
-      const eyeGlow = ctx.createRadialGradient(x+12, dy+22, 0, x+12, dy+22, 14);
-      eyeGlow.addColorStop(0, '#FFF176');
-      eyeGlow.addColorStop(0.5, '#F9A825');
-      eyeGlow.addColorStop(1, 'transparent');
-      ctx.fillStyle = eyeGlow;
-      ctx.beginPath(); ctx.arc(x+12, dy+22, 12, 0, Math.PI*2); ctx.fill();
-
-      const fireLen = 60 + Math.random() * 70;
-      const fireGrad = ctx.createRadialGradient(x-5, dy+35, 5, x-fireLen, dy+40, fireLen);
-      fireGrad.addColorStop(0, '#FFFFFF'); 
-      fireGrad.addColorStop(0.2, '#F59E0B');
-      fireGrad.addColorStop(0.6, '#EF4444');
-      fireGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = fireGrad;
-      ctx.beginPath();
-      ctx.moveTo(x+5, dy + 30);
-      ctx.quadraticCurveTo(x - fireLen/2, dy + 15 + Math.sin(time*0.02)*25, x - fireLen, dy + 40);
-      ctx.quadraticCurveTo(x - fireLen/2, dy + 55 + Math.sin(time*0.02)*25, x+5, dy + 45);
-      ctx.fill();
-
+      drawDragon(ctx, x, y + hover, width, height, time);
+    } else if (type === 'OGRE') {
+      drawOgre(ctx, x, y, width, height, time);
     } else if (type === 'MIMIC') {
       const snap = Math.abs(Math.sin(time * 0.01)) * 18;
       ctx.fillStyle = '#2D1807';
@@ -328,24 +423,6 @@ const GameCanvas: React.FC = () => {
       });
       ctx.fillStyle = '#1F2937'; ctx.beginPath(); ctx.arc(x+width/2, by+height/2-10, 8, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(x+width/2-3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+width/2+3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
-    } else if (type === 'OGRE') {
-      ctx.fillStyle = '#166534';
-      ctx.beginPath(); ctx.roundRect(x + 5, y + 15, width - 10, height - 15, 18); ctx.fill();
-      ctx.fillStyle = '#422006';
-      ctx.beginPath(); ctx.roundRect(x - 2, y + 10, 35, 28, 8); ctx.fill();
-      ctx.fillStyle = '#14532D';
-      ctx.beginPath(); ctx.roundRect(x + 10, y, 42, 38, 12); ctx.fill();
-      ctx.save();
-      const clubSwing = Math.sin(time * 0.007) * 0.9;
-      ctx.translate(x + width - 5, y + 55);
-      ctx.rotate(clubSwing);
-      ctx.fillStyle = '#422006'; ctx.fillRect(-5, -45, 14, 65);
-      ctx.fillStyle = '#713F12'; ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
-      for(let i=0; i<8; i++) {
-        const ang = (i * Math.PI * 2) / 8; ctx.beginPath(); ctx.moveTo(2 + Math.cos(ang)*15, -45 + Math.sin(ang)*15); ctx.lineTo(2 + Math.cos(ang)*28, -45 + Math.sin(ang)*28); ctx.stroke();
-      }
-      ctx.restore();
     } else if (type === 'SLIME') {
       const wobble = Math.sin(time * 0.01) * 10;
       ctx.fillStyle = 'rgba(74, 222, 128, 0.5)'; ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
@@ -375,38 +452,61 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS]?.color || 'red';
       ctx.fillRect(x, y, width, height);
     }
-    
+
     ctx.restore();
   };
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
     const W = ctx.canvas.width;
     const H = ctx.canvas.height;
-    
+    const time = Date.now();
+
+    // Самый дальний слой: черный фон
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, 0, W, GROUND_Y);
 
+    // Слой факелов
     let farOffset = gameRef.current.parallax[0] % 400;
     for (let x = -farOffset; x < W + 400; x += 400) {
-      const tx = x + 150;
-      const ty = 250;
+      const tx = x + 150; const ty = 250;
       const flicker = Math.random() * 8;
-      
+
       const grad = ctx.createRadialGradient(tx, ty, 3, tx, ty, 65 + flicker);
-      grad.addColorStop(0, 'rgba(245, 158, 11, 0.5)'); 
+      grad.addColorStop(0, 'rgba(245, 158, 11, 0.5)');
       grad.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = grad; 
+      ctx.fillStyle = grad;
       ctx.beginPath(); ctx.arc(tx, ty, 65 + flicker, 0, Math.PI * 2); ctx.fill();
-      
+
       ctx.fillStyle = '#F59E0B';
       ctx.beginPath(); ctx.moveTo(tx-6, ty+8); ctx.quadraticCurveTo(tx, ty-15-flicker, tx+6, ty+8); ctx.fill();
     }
 
+    // --- Слой мерцающей пыли ---
+    gameRef.current.ambientParticles.forEach(p => {
+      const twinkle = Math.sin(time * 0.002 + p.phase);
+      const currentOpacity = Math.max(0.05, p.baseOpacity + (twinkle * 0.15));
+
+      ctx.fillStyle = '#EAB308';
+      ctx.globalAlpha = currentOpacity;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+
+      p.x -= p.speed * (engineRef.current.speed / 5);
+      p.y += p.vy;
+
+      if (p.x < -10) {
+        p.x = W + 10;
+        p.y = Math.random() * GROUND_Y;
+      }
+      if (p.y < 0) p.y = GROUND_Y;
+      if (p.y > GROUND_Y) p.y = 0;
+    });
+    ctx.globalAlpha = 1.0;
+
+    // Слой арок
     let archOffset = gameRef.current.parallax[1] % 500;
     for (let x = -archOffset; x < W + 500; x += 500) {
       ctx.fillStyle = '#16131C';
-      const columnWidth = 140;
-      const columnX = x + 180;
+      const columnWidth = 140; const columnX = x + 180;
       ctx.beginPath();
       ctx.roundRect(columnX, 100, columnWidth, GROUND_Y - 100, [70, 70, 0, 0]);
       ctx.fill();
@@ -416,18 +516,7 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    gameRef.current.ambientParticles.forEach(p => {
-      ctx.fillStyle = '#EAB308';
-      ctx.globalAlpha = p.opacity;
-      ctx.fillRect(p.x, p.y, p.size, p.size);
-      p.x -= p.speed * (engineRef.current.speed / 5);
-      if (p.x < -10) { 
-        p.x = W + 10; 
-        p.y = Math.random() * VIRTUAL_HEIGHT; 
-      }
-    });
-    ctx.globalAlpha = 1.0;
-
+    // Слой пола
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, GROUND_Y, W, VIRTUAL_HEIGHT - GROUND_Y);
     ctx.fillStyle = '#6226B3';
@@ -451,7 +540,7 @@ const GameCanvas: React.FC = () => {
     ctx.clearRect(0, 0, W, H);
     drawBackground(ctx);
 
-    // Отрисовка МОНЕТ
+    // Монеты
     gameRef.current.coins.forEach(coin => {
       const bounce = Math.sin(coin.frame) * 5;
       ctx.save();
@@ -464,6 +553,7 @@ const GameCanvas: React.FC = () => {
       ctx.restore();
     });
 
+    // Частицы (эффекты)
     gameRef.current.particles.forEach((p, i) => {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
@@ -473,8 +563,10 @@ const GameCanvas: React.FC = () => {
     });
     ctx.globalAlpha = 1.0;
 
+    // Монстры
     gameRef.current.monsters.forEach(m => drawMonster(ctx, m));
-    
+
+    // Игрок
     const p = gameRef.current.player;
     const isInvul = Date.now() < invulnerableUntil;
     if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
@@ -483,6 +575,7 @@ const GameCanvas: React.FC = () => {
       }
     }
 
+    // Экран старта
     if (gameState === 'START') {
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, W, H);
@@ -497,16 +590,17 @@ const GameCanvas: React.FC = () => {
     if (gameState === 'PLAYING') {
       const dtFactor = deltaTime / 16.67;
       const W = canvasRef.current?.width || 450;
-      
+
       engineRef.current.elapsedTime += deltaTime / 1000;
       engineRef.current.speed = calculateSpeed(engineRef.current.elapsedTime);
       const currentSpeed = engineRef.current.speed;
 
-      gameRef.current.parallax[0] += currentSpeed * 0.3 * dtFactor; 
-      gameRef.current.parallax[1] += currentSpeed * 0.7 * dtFactor; 
-      gameRef.current.parallax[2] += currentSpeed * 1.0 * dtFactor; 
+      gameRef.current.parallax[0] += currentSpeed * 0.3 * dtFactor;
+      gameRef.current.parallax[1] += currentSpeed * 0.7 * dtFactor;
+      gameRef.current.parallax[2] += currentSpeed * 1.0 * dtFactor;
 
-      const { player, monsters } = gameRef.current;
+      const { player, monsters, coins } = gameRef.current;
+
       player.vy += GRAVITY * dtFactor;
       player.y += player.vy * dtFactor;
 
@@ -525,8 +619,7 @@ const GameCanvas: React.FC = () => {
         lastRegenRef.current = timestamp;
       }
 
-      // СПАВН МОНЕТ пачками
-      const coins = gameRef.current.coins; // локальная ссылка для удобства
+      // Спавн монет
       if (Math.random() < 0.015 * dtFactor) {
         const startX = W + 100;
         const targetY = Math.random() > 0.6 ? GROUND_Y - 40 : GROUND_Y - 140;
@@ -541,11 +634,12 @@ const GameCanvas: React.FC = () => {
         }
       }
 
-      // ЛОГИКА МОНЕТ
+      // Логика монет
       for (let i = coins.length - 1; i >= 0; i--) {
         const c = coins[i];
         c.x -= currentSpeed * dtFactor;
         c.frame += 0.1;
+
         if (!c.collected && checkCollision(player, 5, c, 5)) {
           c.collected = true;
           engineRef.current.collectedCoins += 1;
@@ -555,12 +649,12 @@ const GameCanvas: React.FC = () => {
         if (c.x < -100 || c.collected) coins.splice(i, 1);
       }
 
-      // СПАВН МОНСТРОВ
+      // Спавн монстров
       if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
         const config = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS] || ASSET_MANIFEST.MONSTERS.SLIME;
-        
+
         let yPos = GROUND_Y - config.height;
         if (config.type === 'AIR_LOW') yPos = GROUND_Y - 110;
         if (config.type === 'AIR_HIGH') yPos = GROUND_Y - 200;
@@ -578,20 +672,24 @@ const GameCanvas: React.FC = () => {
         gameRef.current.collisionCooldown = timestamp;
       }
 
-      // ОБРАБОТКА МОНСТРОВ
+      // Обработка монстров
       for (let i = monsters.length - 1; i >= 0; i--) {
         const m = monsters[i];
         m.x -= currentSpeed * dtFactor;
-        
+
         const monsterConfig = ASSET_MANIFEST.MONSTERS[m.type as keyof typeof ASSET_MANIFEST.MONSTERS] || ASSET_MANIFEST.MONSTERS.SLIME;
         if (checkCollision(player, ASSET_MANIFEST.PLAYER.hitboxPadding, m, monsterConfig.hitboxPadding) && Date.now() > invulnerableUntil) {
           setIsShaking(true); setTimeout(() => setIsShaking(false), 300);
+
           if (selectedClass) {
             const check = performACCheck(selectedClass.armorClass);
             if (check.type === 'SUCCESS' || check.type === 'CRIT_SUCCESS') {
-              addLog(check.message, 'success'); setInvulnerableUntil(Date.now() + 1000);
+              addLog(check.message, 'success');
+              setInvulnerableUntil(Date.now() + 1000);
             } else {
-              addLog(check.message, 'fail'); takeDamage(1); setInvulnerableUntil(Date.now() + 1500);
+              addLog(check.message, 'fail');
+              takeDamage(1);
+              setInvulnerableUntil(Date.now() + 1500);
             }
           }
         }
@@ -602,26 +700,39 @@ const GameCanvas: React.FC = () => {
       setScore(Math.floor(engineRef.current.distance));
     }
     draw();
-  }, [gameState, hp, maxHp, selectedClass, invulnerableUntil, addLog, takeDamage, heal, draw, GROUND_Y]);
+  }, [gameState, hp, maxHp, selectedClass, invulnerableUntil, addLog, takeDamage, heal, draw, GROUND_Y, GRAVITY]);
 
   useGameLoop(handleUpdate, true);
 
   const startNewGame = useCallback((cls?: any) => {
     const currentCls = cls || selectedClass;
     if (!currentCls) return;
-    engineRef.current.elapsedTime = 0; engineRef.current.distance = 0; engineRef.current.collectedCoins = 0; setCollectedCoins(0);
-    gameRef.current.monsters = []; gameRef.current.particles = []; gameRef.current.coins = [];
+
+    engineRef.current.elapsedTime = 0;
+    engineRef.current.distance = 0;
+    engineRef.current.collectedCoins = 0;
+    setCollectedCoins(0);
+
+    gameRef.current.monsters = [];
+    gameRef.current.particles = [];
+    gameRef.current.coins = [];
     gameRef.current.player.y = GROUND_Y - ASSET_MANIFEST.PLAYER.height;
     gameRef.current.player.vy = 0;
     gameRef.current.player.maxJumps = currentCls.maxJumps || 1;
     gameRef.current.player.jumpsRemaining = gameRef.current.player.maxJumps;
-    lastRegenRef.current = 0; setInvulnerableUntil(0); resetDnd(); setGameState('PLAYING'); setScore(0);
+
+    lastRegenRef.current = 0;
+    setInvulnerableUntil(0);
+    resetDnd();
+    setGameState('PLAYING');
+    setScore(0);
     scoreSavedRef.current = false;
   }, [selectedClass, resetDnd, GROUND_Y]);
 
   const handleInput = useCallback(() => {
-    if (gameState === 'START' || gameState === 'GAME_OVER') setGameState('CLASS_SELECTION');
-    else if (gameState === 'PLAYING') {
+    if (gameState === 'START' || gameState === 'GAME_OVER') {
+      setGameState('CLASS_SELECTION');
+    } else if (gameState === 'PLAYING') {
       const { player } = gameRef.current;
       if (player.jumpsRemaining > 0) {
         player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1.0);
@@ -630,10 +741,12 @@ const GameCanvas: React.FC = () => {
         createJumpEffect(player.x + player.width / 2, player.y + player.height, isSecond ? '#A855F7' : '#6226B3', isSecond);
       }
     }
-  }, [gameState, selectedClass]);
+  }, [gameState, selectedClass, JUMP_STRENGTH]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); handleInput(); } };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') { e.preventDefault(); handleInput(); }
+    };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleInput]);
@@ -643,7 +756,7 @@ const GameCanvas: React.FC = () => {
   return (
     <div className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]"
       onClick={handleInput}
-      >
+    >
       {gameState === 'CLASS_SELECTION' && (
         <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
           <h2 className="text-xl text-primary mb-8 uppercase glow-text">ВЫБЕРИТЕ КЛАСС</h2>
@@ -666,12 +779,12 @@ const GameCanvas: React.FC = () => {
         </div>
       )}
 
-      <div 
-        ref={containerRef} 
+      <div
+        ref={containerRef}
         className={cn(
           "relative flex-1 w-full cursor-pointer overflow-hidden bg-black flex items-center justify-center",
           isShaking && "animate-shake"
-        )} 
+        )}
       >
         <div className="relative w-full h-full">
           {gameState === 'START' && (
@@ -679,7 +792,7 @@ const GameCanvas: React.FC = () => {
               <Leaderboard />
             </div>
           )}
-          
+
           {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
             <div className="absolute top-0 left-0 right-0 h-[6vh] flex justify-between items-center bg-[#0D0B12]/60 p-3 px-6 backdrop-blur-sm z-10">
               <div className="flex gap-1.5">
@@ -698,12 +811,12 @@ const GameCanvas: React.FC = () => {
               </div>
             </div>
           )}
-          
-          <canvas 
-            ref={canvasRef} 
-            width={canvasSize.width} 
-            height={canvasSize.height} 
-            className="image-pixelated w-full h-full block" 
+
+          <canvas
+            ref={canvasRef}
+            width={canvasSize.width}
+            height={canvasSize.height}
+            className="image-pixelated w-full h-full block"
           />
 
           {gameState === 'GAME_OVER' && (
@@ -711,7 +824,7 @@ const GameCanvas: React.FC = () => {
               <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
               <p className="text-[10px] text-white mb-4 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
               <Leaderboard />
-              <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6">ИГРАТЬ СНОВА</button>
+              <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6 active:translate-y-1 active:shadow-none">ИГРАТЬ СНОВА</button>
             </div>
           )}
         </div>
