@@ -207,187 +207,114 @@ const GameCanvas: React.FC = () => {
       });
     }
   };
-
-  const drawDragon = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, time: number) => {
-  const flap = Math.sin(time * 0.005) * 20;        // взмах крыльев
-  const hover = Math.sin(time * 0.003) * 8;        // парение
-
-  // ---- Тело (овал) ----
-  const bodyX = x + width * 0.4;
-  const bodyY = y + height * 0.6 + hover;
-  const bodyWidth = width * 0.6;
-  const bodyHeight = height * 0.4;
-
-  const bodyGrad = ctx.createRadialGradient(bodyX - 10, bodyY - 10, 5, bodyX, bodyY, bodyWidth);
-  bodyGrad.addColorStop(0, '#B91C1C');
-  bodyGrad.addColorStop(0.7, '#7F1D1D');
-  bodyGrad.addColorStop(1, '#450A0A');
-  ctx.fillStyle = bodyGrad;
-  ctx.beginPath();
-  ctx.ellipse(bodyX, bodyY, bodyWidth / 2, bodyHeight / 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Шипы на спине
-  ctx.fillStyle = '#1A0202';
-  for (let i = 0; i < 5; i++) {
-    const spikeX = bodyX - bodyWidth / 2 + 10 + i * 20;
-    const spikeY = bodyY - bodyHeight / 2 - 5;
+// --- УЛУЧШЕННЫЙ ДРАКОН ---
+  const drawDragon = (ctx: CanvasRenderingContext2D, x: number, dy: number, width: number, height: number, time: number) => {
+    const flap = Math.sin(time * 0.005) * 35;
+    
+    // Градиент тела (Сегментированный)
+    const bodyGrad = ctx.createLinearGradient(x, dy, x + width, dy + height);
+    bodyGrad.addColorStop(0, '#B91C1C'); // Красный
+    bodyGrad.addColorStop(0.5, '#7F1D1D'); // Темно-красный
+    bodyGrad.addColorStop(1, '#450A0A'); // Почти черный
+    ctx.fillStyle = bodyGrad;
+    
+    // Хвост (динамический, изгибается)
     ctx.beginPath();
-    ctx.moveTo(spikeX - 5, spikeY);
-    ctx.lineTo(spikeX, spikeY - 12);
-    ctx.lineTo(spikeX + 5, spikeY);
+    ctx.moveTo(x + width - 20, dy + height/2);
+    // Рисуем хвост из 3-х сегментов
+    ctx.quadraticCurveTo(
+      x + width + 40 + Math.sin(time*0.004)*10, 
+      dy + height/2 + Math.cos(time*0.002)*30, 
+      x + width + 30, 
+      dy + height - 10
+    );
+    ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
+    // Кончик хвоста (шип)
+    ctx.fillStyle = '#450A0A'; ctx.beginPath(); 
+    ctx.moveTo(x+width+30, dy+height-10); ctx.lineTo(x+width+40, dy+height+5); ctx.lineTo(x+width+20, dy+height+5); ctx.fill();
+
+    // Крылья (Двухслойные, машут)
+    [ {ox: 35, sx: 1, color: '#7F1D1D'}, {ox: 15, sx: -1, color: '#B91C1C'} ].forEach(wing => {
+      ctx.save();
+      ctx.translate(x + width/2 + wing.ox, dy + 40);
+      ctx.scale(wing.sx, 1); // Отражение для левого крыла
+      
+      // Перепонка крыла
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(80, -70 - flap, 110, 20); // Мах
+      ctx.quadraticCurveTo(60, 50, 0, 15);
+      ctx.fillStyle = wing.color; ctx.fill();
+      
+      // Когти/кости крыла
+      ctx.strokeStyle = '#450A0A'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(110, 20); ctx.stroke();
+      
+      ctx.restore();
+    });
+
+    // Тело (Бронированное)
+    ctx.beginPath();
+    // Сегменты брони на спине
+    for(let i=0; i<5; i++) {
+      ctx.roundRect(x + 20 + i*15, dy + 15 + i*2, 20, height - 30, 5);
+    }
     ctx.fill();
-  }
 
-  // ---- Шея и голова ----
-  const neckX = bodyX - bodyWidth / 2 + 5;
-  const neckY = bodyY - bodyHeight / 3;
-  ctx.strokeStyle = '#7F1D1D';
-  ctx.lineWidth = 16;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(neckX, neckY);
-  ctx.quadraticCurveTo(neckX - 15, neckY - 30, neckX - 35, neckY - 45);
-  ctx.stroke();
+    // Шипы на спине
+    ctx.fillStyle = '#1A0202';
+    for(let i=0; i<6; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x + 35 + i*15, dy + 18);
+      ctx.lineTo(x + 43 + i*15, dy + 2);
+      ctx.lineTo(x + 51 + i*15, dy + 18);
+      ctx.fill();
+    }
 
-  // Голова
-  const headX = neckX - 40;
-  const headY = neckY - 50;
-  ctx.fillStyle = '#7F1D1D';
-  ctx.beginPath();
-  ctx.ellipse(headX, headY, 18, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Пасть
-  ctx.fillStyle = '#450A0A';
-  ctx.beginPath();
-  ctx.ellipse(headX - 5, headY + 4, 10, 6, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Зубы
-  ctx.fillStyle = '#F8FAFC';
-  for (let i = 0; i < 3; i++) {
+    // Голова и Морда
+    ctx.fillStyle = '#7F1D1D';
     ctx.beginPath();
-    ctx.moveTo(headX - 12 + i * 6, headY + 2);
-    ctx.lineTo(headX - 9 + i * 6, headY - 3);
-    ctx.lineTo(headX - 6 + i * 6, headY + 2);
+    ctx.roundRect(x - 10, dy + 5, 65, 50, [25, 10, 10, 25]); // Форма головы
     ctx.fill();
-  }
 
-  // Рога
-  ctx.fillStyle = '#EAB308';
-  ctx.beginPath();
-  ctx.moveTo(headX - 2, headY - 10);
-  ctx.lineTo(headX - 12, headY - 25);
-  ctx.lineTo(headX - 2, headY - 20);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(headX + 2, headY - 10);
-  ctx.lineTo(headX + 12, headY - 25);
-  ctx.lineTo(headX + 2, headY - 20);
-  ctx.fill();
+    // Рога (Золотые)
+    ctx.fillStyle = '#EAB308';
+    ctx.beginPath(); ctx.moveTo(x+20, dy+5); ctx.lineTo(x+30, dy-15); ctx.lineTo(x+40, dy+5); ctx.fill();
 
-  // Глаза (оригинальные, слегка адаптированы под новую голову)
-  const eyeX = headX - 5;
-  const eyeY = headY - 6;
-  const eyeGlow = ctx.createRadialGradient(eyeX, eyeY, 0, eyeX, eyeY, 12);
-  eyeGlow.addColorStop(0, '#FFF176');
-  eyeGlow.addColorStop(0.6, '#F9A825');
-  eyeGlow.addColorStop(1, 'transparent');
-  ctx.fillStyle = eyeGlow;
-  ctx.beginPath();
-  ctx.arc(eyeX, eyeY, 10, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'black';
-  ctx.fillRect(eyeX - 1, eyeY - 6, 2, 12); // зрачок
+    // Глаз (Вертикальный зрачок)
+    const eyeGlow = ctx.createRadialGradient(x+15, dy+22, 0, x+15, dy+22, 12);
+    eyeGlow.addColorStop(0, '#FFF176'); // Желтый
+    eyeGlow.addColorStop(0.6, '#F9A825'); // Оранжевый
+    eyeGlow.addColorStop(1, 'transparent');
+    ctx.fillStyle = eyeGlow;
+    ctx.beginPath(); ctx.arc(x+15, dy+22, 10, 0, Math.PI*2); ctx.fill();
+    // Зрачок
+    ctx.fillStyle = 'black'; ctx.fillRect(x+14, dy+16, 2, 12);
 
-  // ---- Крылья ----
-  const wingBaseX = bodyX + bodyWidth / 3;
-  const wingBaseY = bodyY - bodyHeight / 4;
-
-  // Левое крыло
-  ctx.save();
-  ctx.translate(wingBaseX, wingBaseY);
-  ctx.rotate(0.2 + flap * 0.01);
-  ctx.fillStyle = '#7F1D1D';
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(-50, -70 - flap, -90, -20);
-  ctx.quadraticCurveTo(-60, 20, -15, 5);
-  ctx.fill();
-  // Жилки
-  ctx.strokeStyle = '#450A0A';
-  ctx.lineWidth = 2;
-  for (let i = 1; i <= 3; i++) {
+    // Улучшенное пламя (Слоистый градиент)
+    const fireLen = 60 + Math.random() * 60;
+    const fireGrad = ctx.createRadialGradient(x-5, dy+35, 5, x-fireLen, dy+40, fireLen);
+    fireGrad.addColorStop(0, '#FFFFFF'); // Ядро
+    fireGrad.addColorStop(0.2, '#F59E0B'); // Янтарный
+    fireGrad.addColorStop(0.5, '#EF4444'); // Красный
+    fireGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = fireGrad;
     ctx.beginPath();
-    ctx.moveTo(-i * 20, -i * 5);
-    ctx.lineTo(-70, -20 + i * 10);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // Правое крыло (зеркально)
-  ctx.save();
-  ctx.translate(wingBaseX, wingBaseY);
-  ctx.scale(-1, 1);
-  ctx.rotate(0.2 + flap * 0.01);
-  ctx.fillStyle = '#7F1D1D';
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(-50, -70 - flap, -90, -20);
-  ctx.quadraticCurveTo(-60, 20, -15, 5);
-  ctx.fill();
-  ctx.strokeStyle = '#450A0A';
-  ctx.lineWidth = 2;
-  for (let i = 1; i <= 3; i++) {
-    ctx.beginPath();
-    ctx.moveTo(-i * 20, -i * 5);
-    ctx.lineTo(-70, -20 + i * 10);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // ---- Хвост ----
-  const tailStartX = bodyX + bodyWidth / 2 - 5;
-  const tailStartY = bodyY + bodyHeight / 4;
-  ctx.strokeStyle = '#7F1D1D';
-  ctx.lineWidth = 12;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(tailStartX, tailStartY);
-  ctx.quadraticCurveTo(tailStartX + 30, tailStartY - 10, tailStartX + 60, tailStartY - 30);
-  ctx.stroke();
-  // Наконечник хвоста
-  ctx.fillStyle = '#450A0A';
-  ctx.beginPath();
-  ctx.moveTo(tailStartX + 60, tailStartY - 30);
-  ctx.lineTo(tailStartX + 70, tailStartY - 45);
-  ctx.lineTo(tailStartX + 80, tailStartY - 30);
-  ctx.fill();
-
-  // ---- Пламя с искрами ----
-  const fireLen = 60 + Math.random() * 60;
-  const fireGrad = ctx.createRadialGradient(x - 5, y + 35, 5, x - fireLen, y + 40, fireLen);
-  fireGrad.addColorStop(0, '#FFFFFF');
-  fireGrad.addColorStop(0.2, '#F59E0B');
-  fireGrad.addColorStop(0.5, '#EF4444');
-  fireGrad.addColorStop(1, 'transparent');
-  ctx.fillStyle = fireGrad;
-  ctx.beginPath();
-  ctx.moveTo(x + 5, y + 28);
-  ctx.quadraticCurveTo(
-    x - fireLen / 2,
-    y + 15 + Math.sin(time * 0.02) * 20,
-    x - fireLen,
-    y + 38
-  );
-  ctx.quadraticCurveTo(
-    x - fireLen / 2,
-    y + 55 + Math.cos(time * 0.02) * 20,
-    x + 5,
-    y + 42
-  );
-  ctx.fill();
+    ctx.moveTo(x+5, dy + 28);
+    ctx.quadraticCurveTo(
+      x - fireLen/2, 
+      dy + 15 + Math.sin(time*0.02)*20, // Язык пламени гуляет
+      x - fireLen, 
+      dy + 38
+    );
+    ctx.quadraticCurveTo(
+      x - fireLen/2, 
+      dy + 55 + Math.cos(time*0.02)*20, 
+      x+5, 
+      dy + 42
+    );
+    ctx.fill();
+  };
 
   // ---- Искры (частицы) ----
   // С вероятностью 30% добавляем искры из пасти
