@@ -6,7 +6,7 @@ import { validateTelegramInitData, extractTelegramUser } from '@/lib/telegramAut
 export async function GET(req: NextRequest) {
   const telegramId = req.nextUrl.searchParams.get('telegramId');
 
-  // Топ-10 глобальных рекордов
+  // Топ-10 глобальных рекордов (лучший результат каждого пользователя)
   const topScores = await prisma.$queryRaw<
     { telegram_id: bigint; username: string; character_class: string | null; best_score: number }[]
   >`
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       telegramId: directTelegramId, 
       username: directUsername, 
       score, 
-      coins,        // добавляем поле монет
+      coins,
       characterClass 
     } = body;
 
@@ -93,9 +93,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Транзакция: обновляем баланс и сохраняем результат игры
-    const result = await prisma.$transaction(async (tx) => {
-      // Находим пользователя
+    // Транзакция: начисляем монеты и обновляем/создаём запись лучшего результата
+    await prisma.$transaction(async (tx) => {
       const user = await tx.users.findUnique({
         where: { telegram_id: BigInt(telegramId) },
       });
@@ -104,19 +103,7 @@ export async function POST(req: NextRequest) {
         throw new Error('User not found');
       }
 
-      // Сохраняем результат игры
-      const gameScore = await tx.game_scores.create({
-        data: {
-          user_id: user.id,
-          telegram_id: BigInt(telegramId),
-          username: displayName,
-          score: score,
-          coins: Number(coins) || 0,
-          character_class: characterClass ?? user.character_class,
-        },
-      });
-
-      // Начисляем монеты пользователю
+      // 1. Начисляем монеты (всегда)
       await tx.users.update({
         where: { id: user.id },
         data: {
@@ -126,10 +113,46 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      return gameScore;
+      // 2. Проверяем существующую запись лучшего результата
+      const existingScore = await tx.game_scores.findFirst({
+        where: { telegram_id: BigInt(telegramId) },
+        orderBy: { score: 'desc' },
+      });
+
+      // Если записи нет или новый результат лучше – создаём/обновляем
+      if (!existingScore || score > existingScore.score) {
+        if (existingScore) {
+          // Обновляем существующую запись
+          await tx.game_scores.update({
+            where: { id: existingScore.id },
+            data: {
+              username: displayName,
+              score: score,
+              coins: Number(coins) || 0, // сохраняем количество монет за эту игру (но можно и не обновлять, если нужно хранить именно лучший результат)
+              character_class: characterClass ?? user.character_class,
+              created_at: new Date(), // опционально обновляем дату
+            },
+          });
+        } else {
+          // Создаём новую запись
+          await tx.game_scores.create({
+            data: {
+              user_id: user.id,
+              telegram_id: BigInt(telegramId),
+              username: displayName,
+              score: score,
+              coins: Number(coins) || 0,
+              character_class: characterClass ?? user.character_class,
+            },
+          });
+        }
+      } else {
+        // Результат не лучше – ничего не делаем с game_scores
+        // Можно залогировать, если нужно
+        console.log(`User ${telegramId} scored ${score}, but best is ${existingScore.score}. No update.`);
+      }
     });
 
-    // Возвращаем простой ответ без данных, чтобы избежать сериализации BigInt
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('API Error:', error);
