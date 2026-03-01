@@ -29,6 +29,16 @@ interface AmbientParticle {
   opacity: number;
 }
 
+interface Coin {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  collected: boolean;
+  frame: number; // Для простой анимации "покачивания"
+}
+
 const GameCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -60,6 +70,7 @@ const GameCanvas: React.FC = () => {
     status: 'START',
     lastTimestamp: 0,
     elapsedTime: 0,
+    collectedCoins: 0,
   });
 
   const gameRef = useRef({
@@ -75,6 +86,7 @@ const GameCanvas: React.FC = () => {
       frame: 0 
     } as Player,
     monsters: [] as Monster[],
+    coins: [] as Coin[],
     parallax: [0, 0, 0, 0],
     particles: [] as Particle[],
     ambientParticles: [] as AmbientParticle[],
@@ -145,7 +157,7 @@ const GameCanvas: React.FC = () => {
 
     try {
       const payload = initData
-        ? { initData, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null }
+        ? { initData, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null }
         : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), characterClass: selectedClass?.name ?? null };
 
       await fetch('/api/game/score', {
@@ -425,6 +437,19 @@ const GameCanvas: React.FC = () => {
     ctx.clearRect(0, 0, W, H);
     drawBackground(ctx);
 
+    // Отрисовка МОНЕТ
+    gameRef.current.coins.forEach(coin => {
+      const bounce = Math.sin(coin.frame) * 5;
+      ctx.save();
+      ctx.shadowBlur = 8; ctx.shadowColor = '#EAB308';
+      ctx.fillStyle = '#EAB308';
+      ctx.beginPath(); ctx.arc(coin.x + 10, coin.y + 10 + bounce, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FEF08A';
+      ctx.beginPath(); ctx.arc(coin.x + 7, coin.y + 7 + bounce, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#A16207'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+    });
+
     gameRef.current.particles.forEach((p, i) => {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
@@ -486,6 +511,21 @@ const GameCanvas: React.FC = () => {
         lastRegenRef.current = timestamp;
       }
 
+      // СПАВН МОНЕТ пачками
+      if (Math.random() < 0.015 * dtFactor) {
+        const startX = W + 100;
+        const targetY = Math.random() > 0.6 ? GROUND_Y - 40 : GROUND_Y - 140;
+        for (let i = 0; i < 3; i++) {
+          coins.push({
+            id: Math.random().toString(),
+            x: startX + (i * 40),
+            y: targetY,
+            width: 20, height: 20,
+            collected: false, frame: Math.random() * 10
+          });
+        }
+      }
+
       if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
@@ -506,6 +546,18 @@ const GameCanvas: React.FC = () => {
           speed: currentSpeed,
         });
         gameRef.current.collisionCooldown = timestamp;
+      }
+
+      // ЛОГИКА МОНЕТ
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const c = coins[i]; c.x -= currentSpeed * dtFactor; c.frame += 0.1;
+        if (!c.collected && checkCollision(player, 5, c, 5)) {
+          c.collected = true;
+          engineRef.current.collectedCoins += 1;
+          setCollectedCoins(engineRef.current.collectedCoins);
+          createParticleEffect(c.x + 10, c.y + 10, '#EAB308', 8);
+        }
+        if (c.x < -100 || c.collected) coins.splice(i, 1);
       }
 
       for (let i = monsters.length - 1; i >= 0; i--) {
@@ -537,8 +589,8 @@ const GameCanvas: React.FC = () => {
   const startNewGame = useCallback((cls?: any) => {
     const currentCls = cls || selectedClass;
     if (!currentCls) return;
-    engineRef.current.elapsedTime = 0; engineRef.current.distance = 0;
-    gameRef.current.monsters = []; gameRef.current.particles = [];
+    engineRef.current.elapsedTime = 0; engineRef.current.distance = 0; engineRef.current.collectedCoins = 0; setCollectedCoins(0);
+    gameRef.current.monsters = []; gameRef.current.particles = []; gameRef.current.coins = [];
     gameRef.current.player.y = GROUND_Y - ASSET_MANIFEST.PLAYER.height;
     gameRef.current.player.vy = 0;
     gameRef.current.player.maxJumps = currentCls.maxJumps || 1;
@@ -617,6 +669,8 @@ const GameCanvas: React.FC = () => {
               <div className="text-right">
                  <div className="text-[10px] text-primary font-bold">{score}м</div>
                  <div className="text-[7px] text-secondary opacity-60 uppercase">{selectedClass?.label}</div>
+                <div className="text-[9px] text-yellow-400 font-bold">💰 {engineRef.current.collectedCoins}</div>
+                <div className="text-[7px] text-secondary opacity-60 uppercase">{selectedClass?.label}</div>
               </div>
             </div>
           )}
