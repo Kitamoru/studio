@@ -641,7 +641,9 @@ const GameCanvas: React.FC = () => {
   if (!isImageLoaded) return <div className="flex flex-col items-center justify-center bg-[#0A080D] w-full h-full"><Loader2 className="w-12 h-12 text-primary animate-spin" /></div>;
 
   return (
-    <div className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]">
+    <div className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]"
+      onClick={handleInput}
+      >
       {gameState === 'CLASS_SELECTION' && (
         <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
           <h2 className="text-xl text-primary mb-8 uppercase glow-text">ВЫБЕРИТЕ КЛАСС</h2>
@@ -670,7 +672,6 @@ const GameCanvas: React.FC = () => {
           "relative flex-1 w-full cursor-pointer overflow-hidden bg-black flex items-center justify-center",
           isShaking && "animate-shake"
         )} 
-        onClick={handleInput}
       >
         <div className="relative w-full h-full">
           {gameState === 'START' && (
