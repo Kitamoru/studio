@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.best_score - a.best_score)
     .map((r, index) => ({
       rank: index + 1,
-      telegramId: r.telegram_id.toString(),
+      telegramId: r.telegram_id.toString(), // BigInt → string
       username: r.username,
       characterClass: r.character_class,
       score: r.best_score,
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       `;
 
       personalBest = {
-        telegramId: userBest.telegram_id.toString(),
+        telegramId: userBest.telegram_id.toString(), // BigInt → string
         username: userBest.username,
         score: userBest.score,
         rank: Number(betterPlayersCount[0].count) + 1,
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       telegramId: directTelegramId, 
       username: directUsername, 
       score, 
-      coins, // Получаем монеты из игры
+      coins,
       characterClass 
     } = body;
 
@@ -90,9 +90,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ТРАНЗАКЦИЯ: Сохраняем счет и обновляем баланс пользователя одновременно
+    // Транзакция
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Проверяем наличие пользователя
       const user = await tx.users.findUnique({
         where: { telegram_id: BigInt(telegramId) },
       });
@@ -101,24 +100,22 @@ export async function POST(req: NextRequest) {
         throw new Error('User not found');
       }
 
-      // 2. Создаем запись в истории игр (game_scores)
       const newGameScore = await tx.game_scores.create({
         data: {
           user_id: user.id,
           telegram_id: BigInt(telegramId),
           username: displayName,
           score: score,
-          coins: Number(coins) || 0, // Сохраняем результат за забег
+          coins: Number(coins) || 0,
           character_class: characterClass ?? user.character_class,
         },
       });
 
-      // 3. Начисляем золото пользователю в таблицу users
       await tx.users.update({
         where: { id: user.id },
         data: {
           coins: {
-            increment: Number(coins) || 0 // Атомарно увеличиваем текущий баланс
+            increment: Number(coins) || 0
           }
         }
       });
@@ -126,7 +123,13 @@ export async function POST(req: NextRequest) {
       return newGameScore;
     });
 
-    return NextResponse.json({ success: true, data: result });
+    // Сериализация BigInt
+    const serializedResult = {
+      ...result,
+      telegram_id: result.telegram_id.toString(), // единственное BigInt поле
+    };
+
+    return NextResponse.json({ success: true, data: serializedResult });
   } catch (error: any) {
     console.error('API Error:', error);
     if (error.message === 'User not found') {
