@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.best_score - a.best_score)
     .map((r, index) => ({
       rank: index + 1,
-      telegramId: r.telegram_id.toString(), // BigInt → string
+      telegramId: r.telegram_id.toString(),
       username: r.username,
       characterClass: r.character_class,
       score: r.best_score,
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       `;
 
       personalBest = {
-        telegramId: userBest.telegram_id.toString(), // BigInt → string
+        telegramId: userBest.telegram_id.toString(),
         username: userBest.username,
         score: userBest.score,
         rank: Number(betterPlayersCount[0].count) + 1,
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       telegramId: directTelegramId, 
       username: directUsername, 
       score, 
-      coins,
+      coins,        // добавляем поле монет
       characterClass 
     } = body;
 
@@ -76,13 +76,16 @@ export async function POST(req: NextRequest) {
     // Валидация данных
     if (initData) {
       const isValid = validateTelegramInitData(initData);
-      if (!isValid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      
+      if (!isValid) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
       const tgUser = extractTelegramUser(initData);
-      if (!tgUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      
-      telegramId = tgUser.id;
-      displayName = tgUser.username || [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'Аноним';
+      if (!tgUser) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const { id, username, first_name, last_name } = tgUser;
+      telegramId = id;
+      displayName = username || [first_name, last_name].filter(Boolean).join(' ') || 'Аноним';
     } else if (directTelegramId) {
       telegramId = Number(directTelegramId);
       displayName = directUsername || 'Аноним';
@@ -90,8 +93,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Транзакция
+    // Транзакция: обновляем баланс и сохраняем результат игры
     const result = await prisma.$transaction(async (tx) => {
+      // Находим пользователя
       const user = await tx.users.findUnique({
         where: { telegram_id: BigInt(telegramId) },
       });
@@ -100,7 +104,8 @@ export async function POST(req: NextRequest) {
         throw new Error('User not found');
       }
 
-      const newGameScore = await tx.game_scores.create({
+      // Сохраняем результат игры
+      const gameScore = await tx.game_scores.create({
         data: {
           user_id: user.id,
           telegram_id: BigInt(telegramId),
@@ -111,6 +116,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Начисляем монеты пользователю
       await tx.users.update({
         where: { id: user.id },
         data: {
@@ -120,16 +126,11 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      return newGameScore;
+      return gameScore;
     });
 
-    // Сериализация BigInt
-    const serializedResult = {
-      ...result,
-      telegram_id: result.telegram_id.toString(), // единственное BigInt поле
-    };
-
-    return NextResponse.json({ success: true, data: serializedResult });
+    // Возвращаем простой ответ без данных, чтобы избежать сериализации BigInt
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('API Error:', error);
     if (error.message === 'User not found') {
