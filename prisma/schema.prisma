@@ -10,7 +10,9 @@ datasource db {
 model users {
   id                Int                @id @default(autoincrement())
   telegram_id       BigInt             @unique
+  username          String?            // Добавили имя пользователя
   character_class   String?
+  coins             Int                @default(0) // Накопительный баланс золота
   octalysis_factors octalysis_factors?
   game_scores       game_scores[]
 }
@@ -35,6 +37,7 @@ model game_scores {
   telegram_id     BigInt
   username        String
   score           Float
+  coins           Int      @default(0) // Золото, добытое за конкретную игру
   character_class String?
   created_at      DateTime @default(now())
 
