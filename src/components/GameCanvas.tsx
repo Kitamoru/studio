@@ -41,6 +41,95 @@ interface Coin {
   frame: number;
 }
 
+// ─── MONSTER PATTERNS ────────────────────────────────────────────────────────
+type PatternSpawn = { type: MonsterType; xGap: number };
+
+interface MonsterPattern {
+  name: string;
+  spawns: PatternSpawn[];
+  minSpeed?: number;
+}
+
+const MONSTER_PATTERNS: MonsterPattern[] = [
+  // --- Простые (старт) ---
+  { name: 'single_slime',  spawns: [{ type: 'SLIME', xGap: 0 }] },
+  { name: 'single_bat',    spawns: [{ type: 'BAT',   xGap: 0 }] },
+  { name: 'single_ghost',  spawns: [{ type: 'GHOST', xGap: 0 }] },
+  { name: 'single_mimic',  spawns: [{ type: 'MIMIC', xGap: 0 }] },
+
+  // --- Средние (speed ≥ 7) ---
+  {
+    name: 'bat_slime',
+    minSpeed: 7,
+    spawns: [
+      { type: 'SLIME', xGap: 0   },
+      { type: 'BAT',   xGap: 260 },
+    ],
+  },
+  {
+    name: 'double_ground',
+    minSpeed: 7,
+    spawns: [
+      { type: 'SLIME', xGap: 0   },
+      { type: 'MIMIC', xGap: 320 },
+    ],
+  },
+  {
+    name: 'ghost_slime',
+    minSpeed: 7,
+    spawns: [
+      { type: 'GHOST', xGap: 0   },
+      { type: 'SLIME', xGap: 280 },
+    ],
+  },
+
+  // --- Сложные (speed ≥ 9) ---
+  {
+    name: 'trio_wave',
+    minSpeed: 9,
+    spawns: [
+      { type: 'BAT',   xGap: 0   },
+      { type: 'SLIME', xGap: 300 },
+      { type: 'GHOST', xGap: 180 },
+    ],
+  },
+  {
+    name: 'beholder_escort',
+    minSpeed: 9,
+    spawns: [
+      { type: 'SLIME',    xGap: 0   },
+      { type: 'BEHOLDER', xGap: 350 },
+      { type: 'SLIME',    xGap: 350 },
+    ],
+  },
+
+  // --- Боссы (speed ≥ 10) ---
+  {
+    name: 'dragon_solo',
+    minSpeed: 10,
+    spawns: [{ type: 'DRAGON', xGap: 0 }],
+  },
+  {
+    name: 'ogre_minions',
+    minSpeed: 10,
+    spawns: [
+      { type: 'SLIME', xGap: 0   },
+      { type: 'OGRE',  xGap: 400 },
+      { type: 'SLIME', xGap: 400 },
+    ],
+  },
+  {
+    name: 'dragon_bats',
+    minSpeed: 11,
+    spawns: [
+      { type: 'BAT',    xGap: 0   },
+      { type: 'DRAGON', xGap: 350 },
+      { type: 'BAT',    xGap: 350 },
+    ],
+  },
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
 const GameCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,6 +182,9 @@ const GameCanvas: React.FC = () => {
     particles: [] as Particle[],
     ambientParticles: [] as AmbientParticle[],
     collisionCooldown: 0,
+    // Система паттернов
+    patternQueue: [] as { type: MonsterType; spawnAt: number }[],
+    nextPatternTime: 0,
   });
 
   useEffect(() => {
@@ -102,13 +194,11 @@ const GameCanvas: React.FC = () => {
         setCanvasSize({ width: clientWidth, height: clientHeight });
       }
     };
-
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Инициализация частиц — отдельно, гарантированно после получения размеров
   useEffect(() => {
     if (gameRef.current.ambientParticles.length > 0) return;
     const W = canvasSize.width;
@@ -135,30 +225,22 @@ const GameCanvas: React.FC = () => {
       tg.ready();
       tg.expand();
       tg.headerColor = '#0D0B12';
-
       tg.BackButton.show();
       tg.BackButton.onClick(() => tg.close());
-
-      return () => {
-        tg.BackButton.hide();
-      };
+      return () => { tg.BackButton.hide(); };
     }
   }, []);
 
   useEffect(() => {
     const img = new Image();
     img.src = '/Knight2.webp';
-    img.onload = () => {
-      playerImgRef.current = img;
-      setIsImageLoaded(true);
-    };
+    img.onload = () => { playerImgRef.current = img; setIsImageLoaded(true); };
     img.onerror = () => setIsImageLoaded(true);
   }, []);
 
   const saveScore = useCallback(async () => {
     if (scoreSavedRef.current || (!initData && !user)) return;
     scoreSavedRef.current = true;
-
     try {
       const payload = initData
         ? { initData, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null }
@@ -176,9 +258,7 @@ const GameCanvas: React.FC = () => {
   }, [initData, user, selectedClass]);
 
   useEffect(() => {
-    if (gameState === 'GAME_OVER') {
-      saveScore();
-    }
+    if (gameState === 'GAME_OVER') saveScore();
   }, [gameState, saveScore]);
 
   const createParticleEffect = (x: number, y: number, color: string, count = 10) => {
@@ -198,8 +278,7 @@ const GameCanvas: React.FC = () => {
     const pColor = isSecond ? '#A855F7' : color;
     for (let i = 0; i < count; i++) {
       gameRef.current.particles.push({
-        x,
-        y,
+        x, y,
         vx: (Math.random() - 0.5) * (isSecond ? 10 : 6),
         vy: (Math.random() - 0.5) * (isSecond ? 6 : 4),
         life: 1.0,
@@ -208,7 +287,7 @@ const GameCanvas: React.FC = () => {
     }
   };
 
-  // --- ДРАКОН (D&D/Mario стиль) ---
+  // ─── ДРАКОН ──────────────────────────────────────────────────────────────
   const drawDragon = (ctx: CanvasRenderingContext2D, x: number, dy: number, width: number, height: number, time: number) => {
     const hover = Math.sin(time * 0.003) * 8;
     const y = dy + hover;
@@ -216,7 +295,6 @@ const GameCanvas: React.FC = () => {
 
     ctx.save();
 
-    // --- ХВОСТ (волнообразный, вправо) ---
     ctx.strokeStyle = '#7F1D1D';
     ctx.lineWidth = 11;
     ctx.lineCap = 'round';
@@ -226,7 +304,6 @@ const GameCanvas: React.FC = () => {
     ctx.quadraticCurveTo(x + width + 75, y + height * 0.22 + Math.cos(time * 0.004) * 12, x + width + 58, y + height * 0.12);
     ctx.stroke();
 
-    // Жало хвоста (ромб)
     ctx.fillStyle = '#FCD34D';
     const tx = x + width + 58, ty = y + height * 0.12;
     ctx.beginPath();
@@ -236,7 +313,6 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(tx - 7, ty);
     ctx.fill();
 
-    // --- ШИПЫ вдоль спины ---
     ctx.fillStyle = '#FCD34D';
     for (let i = 0; i < 6; i++) {
       const sx = x + width * 0.72 - i * 13;
@@ -249,7 +325,6 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
     }
 
-    // --- ЗАДНЕЕ КРЫЛО (темнее, за телом) ---
     ctx.save();
     ctx.translate(x + width * 0.6, y + height * 0.28);
     const bwX = Math.cos(wingFlap - 0.4) * 72;
@@ -264,14 +339,10 @@ const GameCanvas: React.FC = () => {
     ctx.lineWidth = 1.5;
     for (let i = 1; i <= 3; i++) {
       const t = i / 4;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(bwX * t, bwY * t);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(bwX * t, bwY * t); ctx.stroke();
     }
     ctx.restore();
 
-    // --- ТЕЛО (основной овал) ---
     const bodyGrad = ctx.createLinearGradient(x + width * 0.15, y + height * 0.3, x + width * 0.15, y + height * 0.9);
     bodyGrad.addColorStop(0, '#EF4444');
     bodyGrad.addColorStop(0.45, '#B91C1C');
@@ -281,20 +352,16 @@ const GameCanvas: React.FC = () => {
     ctx.ellipse(x + width * 0.5, y + height * 0.62, width * 0.4, height * 0.3, -0.12, 0, Math.PI * 2);
     ctx.fill();
 
-    // Чешуя-узор на теле
     ctx.strokeStyle = 'rgba(0,0,0,0.18)';
     ctx.lineWidth = 1;
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 5; col++) {
         const sx = x + width * 0.2 + col * 15 + (row % 2) * 7;
         const sy = y + height * 0.5 + row * 12;
-        ctx.beginPath();
-        ctx.arc(sx, sy, 5, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.stroke();
       }
     }
 
-    // Брюхо (светлее)
     const bellyGrad = ctx.createLinearGradient(x + width * 0.3, y + height * 0.5, x + width * 0.3, y + height * 0.88);
     bellyGrad.addColorStop(0, '#FCA5A5');
     bellyGrad.addColorStop(1, '#F87171');
@@ -302,7 +369,6 @@ const GameCanvas: React.FC = () => {
     ctx.beginPath();
     ctx.ellipse(x + width * 0.44, y + height * 0.67, width * 0.22, height * 0.2, -0.1, 0, Math.PI * 2);
     ctx.fill();
-    // Сегменты брюха
     ctx.strokeStyle = 'rgba(150,30,30,0.3)';
     ctx.lineWidth = 1.2;
     for (let i = 0; i < 5; i++) {
@@ -311,7 +377,6 @@ const GameCanvas: React.FC = () => {
       ctx.stroke();
     }
 
-    // --- ПЕРЕДНЕЕ КРЫЛО ---
     ctx.save();
     ctx.translate(x + width * 0.48, y + height * 0.24);
     const fwX = Math.cos(wingFlap) * 78;
@@ -326,19 +391,12 @@ const GameCanvas: React.FC = () => {
     ctx.lineWidth = 1.5;
     for (let i = 1; i <= 4; i++) {
       const t = i / 5;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(fwX * t, fwY * t);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(fwX * t, fwY * t); ctx.stroke();
     }
-    // Коготь на крыле
     ctx.fillStyle = '#E5E7EB';
-    ctx.beginPath();
-    ctx.ellipse(fwX, fwY, 4, 7, -0.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(fwX, fwY, 4, 7, -0.5, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
 
-    // --- ШЕЯ ---
     ctx.fillStyle = '#DC2626';
     ctx.beginPath();
     ctx.moveTo(x + width * 0.2, y + height * 0.38);
@@ -346,41 +404,24 @@ const GameCanvas: React.FC = () => {
     ctx.bezierCurveTo(x - width * 0.04, y + height * 0.18, x - width * 0.02, y + height * 0.3, x + width * 0.08, y + height * 0.42);
     ctx.fill();
 
-    // --- ГОЛОВА (смотрит влево, на игрока) ---
     const headX = x - 38;
     const headY = y + height * 0.1;
 
-    // Основа черепа
     ctx.fillStyle = '#DC2626';
-    ctx.beginPath();
-    ctx.roundRect(headX, headY, 60, 38, [14, 8, 6, 14]);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(headX, headY, 60, 38, [14, 8, 6, 14]); ctx.fill();
 
-    // Морда (вытянутая)
     ctx.fillStyle = '#C51E1E';
-    ctx.beginPath();
-    ctx.roundRect(headX - 18, headY + 12, 30, 22, [6, 4, 10, 10]);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(headX - 18, headY + 12, 30, 22, [6, 4, 10, 10]); ctx.fill();
 
-    // Ноздря
     ctx.fillStyle = '#450A0A';
-    ctx.beginPath();
-    ctx.ellipse(headX - 12, headY + 19, 3, 2, 0.3, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(headX - 12, headY + 19, 3, 2, 0.3, 0, Math.PI * 2); ctx.fill();
 
-    // Нижняя челюсть (открытая пасть)
     ctx.fillStyle = '#B91C1C';
-    ctx.beginPath();
-    ctx.roundRect(headX - 16, headY + 28, 48, 18, [4, 4, 10, 10]);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(headX - 16, headY + 28, 48, 18, [4, 4, 10, 10]); ctx.fill();
 
-    // Внутрь пасти
     ctx.fillStyle = '#450A0A';
-    ctx.beginPath();
-    ctx.roundRect(headX - 14, headY + 30, 44, 12, 3);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(headX - 14, headY + 30, 44, 12, 3); ctx.fill();
 
-    // Язык
     ctx.fillStyle = '#F43F5E';
     ctx.beginPath();
     ctx.moveTo(headX - 14, headY + 38);
@@ -390,9 +431,7 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(headX - 14, headY + 38);
     ctx.fill();
 
-    // --- ЗУБЫ ---
     ctx.fillStyle = '#F8FAFC';
-    // Верхние зубы
     for (let i = 0; i < 5; i++) {
       ctx.beginPath();
       ctx.moveTo(headX + 20 - i * 8, headY + 28);
@@ -400,14 +439,12 @@ const GameCanvas: React.FC = () => {
       ctx.lineTo(headX + 12 - i * 8, headY + 28);
       ctx.fill();
     }
-    // Большой клык
     ctx.beginPath();
     ctx.moveTo(headX - 8, headY + 28);
     ctx.lineTo(headX - 12, headY + 40);
     ctx.lineTo(headX - 4, headY + 28);
     ctx.fill();
 
-    // --- РОГА ---
     ctx.fillStyle = '#FCD34D';
     ctx.beginPath();
     ctx.moveTo(headX + 42, headY + 3);
@@ -426,40 +463,23 @@ const GameCanvas: React.FC = () => {
     ctx.lineTo(headX + 15, headY + 3);
     ctx.fill();
 
-    // --- ГЛАЗ (вертикальный кошачий зрачок) ---
     const eyeX = headX + 30;
     const eyeY = headY + 16;
-    // Свечение вокруг глаза (rgba вместо 'transparent' — иначе Canvas даёт тёмное кольцо)
     const eyeGlow = ctx.createRadialGradient(eyeX, eyeY, 3, eyeX, eyeY, 14);
     eyeGlow.addColorStop(0, 'rgba(254,240,138,0.9)');
     eyeGlow.addColorStop(0.6, 'rgba(251,191,36,0.4)');
     eyeGlow.addColorStop(1, 'rgba(251,191,36,0)');
     ctx.fillStyle = eyeGlow;
-    ctx.beginPath();
-    ctx.arc(eyeX, eyeY, 14, 0, Math.PI * 2);
-    ctx.fill();
-    // Радужка — янтарная
+    ctx.beginPath(); ctx.arc(eyeX, eyeY, 14, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#F59E0B';
-    ctx.beginPath();
-    ctx.arc(eyeX, eyeY, 7, 0, Math.PI * 2);
-    ctx.fill();
-    // Зрачок — вертикальный, заметно уже радужки
+    ctx.beginPath(); ctx.arc(eyeX, eyeY, 7, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#0C0A09';
-    ctx.beginPath();
-    ctx.ellipse(eyeX, eyeY, 1.5, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Блик (делает глаз живым)
+    ctx.beginPath(); ctx.ellipse(eyeX, eyeY, 1.5, 6, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.beginPath();
-    ctx.ellipse(eyeX + 2, eyeY - 2, 1.5, 1, 0.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(eyeX + 2, eyeY - 2, 1.5, 1, 0.5, 0, Math.PI * 2); ctx.fill();
 
-    // --- ЛАПЫ ---
     ctx.fillStyle = '#B91C1C';
-    // Передняя лапа
-    ctx.beginPath();
-    ctx.roundRect(x + width * 0.12, y + height * 0.78, 14, 18, 4);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x + width * 0.12, y + height * 0.78, 14, 18, 4); ctx.fill();
     ctx.fillStyle = '#D1D5DB';
     for (let c = 0; c < 3; c++) {
       ctx.beginPath();
@@ -468,11 +488,8 @@ const GameCanvas: React.FC = () => {
       ctx.lineTo(x + width * 0.12 + c * 7, y + height * 0.96);
       ctx.fill();
     }
-    // Задняя лапа
     ctx.fillStyle = '#B91C1C';
-    ctx.beginPath();
-    ctx.roundRect(x + width * 0.7, y + height * 0.8, 16, 16, 4);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x + width * 0.7, y + height * 0.8, 16, 16, 4); ctx.fill();
     ctx.fillStyle = '#D1D5DB';
     for (let c = 0; c < 3; c++) {
       ctx.beginPath();
@@ -482,13 +499,11 @@ const GameCanvas: React.FC = () => {
       ctx.fill();
     }
 
-    // --- ОГНЕННОЕ ДЫХАНИЕ ---
     const fireLen = 80 + Math.random() * 55;
     const flick = Math.sin(time * 0.022) * 14;
     const fireStartX = headX - 18;
     const fireStartY = headY + 34;
 
-    // Внешний жар
     const outerFire = ctx.createRadialGradient(fireStartX, fireStartY, 2, fireStartX - fireLen * 0.55, fireStartY, fireLen * 0.9);
     outerFire.addColorStop(0, 'rgba(255,240,200,0.9)');
     outerFire.addColorStop(0.2, 'rgba(251,146,60,0.75)');
@@ -501,7 +516,6 @@ const GameCanvas: React.FC = () => {
     ctx.bezierCurveTo(fireStartX - fireLen * 0.75, fireStartY + 20 - flick * 0.5, fireStartX - fireLen * 0.3, fireStartY + 18 - flick, fireStartX, fireStartY + 10);
     ctx.fill();
 
-    // Ядро пламени
     const coreFire = ctx.createLinearGradient(fireStartX, fireStartY, fireStartX - fireLen * 0.6, fireStartY);
     coreFire.addColorStop(0, 'rgba(255,255,255,0.95)');
     coreFire.addColorStop(0.3, 'rgba(255,220,50,0.85)');
@@ -514,7 +528,6 @@ const GameCanvas: React.FC = () => {
     ctx.bezierCurveTo(fireStartX - fireLen * 0.55, fireStartY + 6 - flick * 0.3, fireStartX - fireLen * 0.25, fireStartY + 10 - flick * 0.4, fireStartX, fireStartY + 4);
     ctx.fill();
 
-    // Искры из пасти
     if (Math.random() < 0.45) {
       for (let i = 0; i < 5; i++) {
         const sx = fireStartX - Math.random() * fireLen * 0.85;
@@ -532,57 +545,49 @@ const GameCanvas: React.FC = () => {
     ctx.restore();
   };
 
-  // --- УЛУЧШЕННЫЙ ОГР ---
+  // ─── ОГР ─────────────────────────────────────────────────────────────────
   const drawOgre = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, time: number) => {
     ctx.fillStyle = '#166534';
-    ctx.beginPath();
-    ctx.roundRect(x + 5, y + 20, width - 10, height - 20, 20);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x + 5, y + 20, width - 10, height - 20, 20); ctx.fill();
 
     ctx.fillStyle = '#14532D';
     ctx.beginPath(); ctx.arc(x + 10, y + 35, 18, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = '#15803d';
-    ctx.beginPath(); ctx.ellipse(x + width/2, y + height - 25, 20, 15, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + width / 2, y + height - 25, 20, 15, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = '#166534';
-    ctx.beginPath();
-    ctx.roundRect(x + 10, y, 45, 40, [15, 15, 5, 5]);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x + 10, y, 45, 40, [15, 15, 5, 5]); ctx.fill();
 
-    ctx.fillStyle = '#052e16'; ctx.fillRect(x+18, y+12, 30, 4);
-
+    ctx.fillStyle = '#052e16'; ctx.fillRect(x + 18, y + 12, 30, 4);
     ctx.fillStyle = 'red';
-    ctx.beginPath(); ctx.arc(x+25, y+20, 3, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x+40, y+20, 3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 25, y + 20, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 40, y + 20, 3, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = '#F8FAFC';
-    ctx.beginPath(); ctx.moveTo(x+20, y+32); ctx.lineTo(x+24, y+24); ctx.lineTo(x+28, y+32); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x+40, y+32); ctx.lineTo(x+44, y+24); ctx.lineTo(x+48, y+32); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x + 20, y + 32); ctx.lineTo(x + 24, y + 24); ctx.lineTo(x + 28, y + 32); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x + 40, y + 32); ctx.lineTo(x + 44, y + 24); ctx.lineTo(x + 48, y + 32); ctx.fill();
 
-    // Дубина
     ctx.save();
     const clubSwing = Math.sin(time * 0.007) * 0.9;
     ctx.translate(x + width - 5, y + 55);
     ctx.rotate(clubSwing);
 
-    ctx.fillStyle = '#422006';
-    ctx.fillRect(-5, -45, 14, 65);
+    ctx.fillStyle = '#422006'; ctx.fillRect(-5, -45, 14, 65);
     ctx.fillStyle = '#54300a'; ctx.fillRect(-2, -40, 2, 55);
-
-    ctx.fillStyle = '#713F12'; ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#713F12'; ctx.beginPath(); ctx.arc(2, -45, 20, 0, Math.PI * 2); ctx.fill();
 
     ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
-    for(let i=0; i<8; i++) {
+    for (let i = 0; i < 8; i++) {
       const ang = (i * Math.PI * 2) / 8;
       ctx.beginPath();
-      ctx.moveTo(2 + Math.cos(ang)*15, -45 + Math.sin(ang)*15);
-      ctx.lineTo(2 + Math.cos(ang)*30, -45 + Math.sin(ang)*30);
+      ctx.moveTo(2 + Math.cos(ang) * 15, -45 + Math.sin(ang) * 15);
+      ctx.lineTo(2 + Math.cos(ang) * 30, -45 + Math.sin(ang) * 30);
       ctx.stroke();
       ctx.strokeStyle = 'white'; ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(2 + Math.cos(ang)*22, -45 + Math.sin(ang)*22);
-      ctx.lineTo(2 + Math.cos(ang)*28, -45 + Math.sin(ang)*28);
+      ctx.moveTo(2 + Math.cos(ang) * 22, -45 + Math.sin(ang) * 22);
+      ctx.lineTo(2 + Math.cos(ang) * 28, -45 + Math.sin(ang) * 28);
       ctx.stroke();
       ctx.strokeStyle = '#94A3B8'; ctx.lineWidth = 4;
     }
@@ -604,19 +609,18 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#2D1807';
       ctx.beginPath(); ctx.roundRect(x, y + 25, width, height - 25, 4); ctx.fill();
       ctx.strokeStyle = '#3F2305'; ctx.lineWidth = 1;
-      for(let i=5; i<width; i+=10) {
-        ctx.beginPath(); ctx.moveTo(x+i, y+27); ctx.lineTo(x+i, y+height-4); ctx.stroke();
+      for (let i = 5; i < width; i += 10) {
+        ctx.beginPath(); ctx.moveTo(x + i, y + 27); ctx.lineTo(x + i, y + height - 4); ctx.stroke();
       }
-      ctx.fillStyle = 'black';
-      ctx.fillRect(x + 4, y + 20, width - 8, 10);
-      for(let i=0; i<3; i++) {
+      ctx.fillStyle = 'black'; ctx.fillRect(x + 4, y + 20, width - 8, 10);
+      for (let i = 0; i < 3; i++) {
         const ex = x + 10 + i * 14; const ey = y + 24;
         ctx.fillStyle = '#EAB308'; ctx.beginPath(); ctx.arc(ex, ey, 3, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(ex, ey, 1, 0, Math.PI * 2); ctx.fill();
       }
       ctx.fillStyle = '#F8FAFC';
-      for(let i=0; i<6; i++) {
-        const tx = x + 6 + i*6;
+      for (let i = 0; i < 6; i++) {
+        const tx = x + 6 + i * 6;
         ctx.beginPath(); ctx.moveTo(tx, y + 25); ctx.lineTo(tx + 3, y + 20); ctx.lineTo(tx + 6, y + 25); ctx.fill();
       }
       ctx.save();
@@ -624,10 +628,10 @@ const GameCanvas: React.FC = () => {
       ctx.fillStyle = '#452A12';
       ctx.beginPath(); ctx.roundRect(x, y + 5, width, 18, 6); ctx.fill();
       ctx.fillStyle = '#71717A'; ctx.fillRect(x, y + 5, 8, 18); ctx.fillRect(x + width - 8, y + 5, 8, 18);
-      ctx.fillStyle = '#A16207'; ctx.fillRect(x + width/2 - 4, y + 16, 8, 6);
+      ctx.fillStyle = '#A16207'; ctx.fillRect(x + width / 2 - 4, y + 16, 8, 6);
       ctx.fillStyle = '#F8FAFC';
-      for(let i=0; i<7; i++) {
-        const tx = x + 4 + i*6;
+      for (let i = 0; i < 7; i++) {
+        const tx = x + 4 + i * 6;
         ctx.beginPath(); ctx.moveTo(tx, y + 23); ctx.lineTo(tx + 3, y + 28); ctx.lineTo(tx + 6, y + 23); ctx.fill();
       }
       ctx.restore();
@@ -636,41 +640,56 @@ const GameCanvas: React.FC = () => {
       const hover = Math.sin(time * 0.01) * 15;
       const by = y + hover;
       ctx.fillStyle = '#374151';
-      ctx.beginPath(); ctx.ellipse(x + width/2, by + height/2, 10, 14, 0, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x + width / 2, by + height / 2, 10, 14, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#1F2937';
       [1, -1].forEach(side => {
         ctx.save();
-        ctx.translate(x + width/2, by + height/2);
+        ctx.translate(x + width / 2, by + height / 2);
         ctx.scale(side, 1);
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(30, -30 - flap, 45, 0); ctx.quadraticCurveTo(30, 20, 15, 5); ctx.quadraticCurveTo(5, 15, 0, 0); ctx.fill();
         ctx.restore();
       });
-      ctx.fillStyle = '#1F2937'; ctx.beginPath(); ctx.arc(x+width/2, by+height/2-10, 8, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(x+width/2-3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+width/2+3, by+height/2-10, 2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#1F2937'; ctx.beginPath(); ctx.arc(x + width / 2, by + height / 2 - 10, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#EF4444';
+      ctx.beginPath(); ctx.arc(x + width / 2 - 3, by + height / 2 - 10, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + width / 2 + 3, by + height / 2 - 10, 2, 0, Math.PI * 2); ctx.fill();
     } else if (type === 'SLIME') {
       const wobble = Math.sin(time * 0.01) * 10;
-      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)'; ctx.beginPath(); ctx.ellipse(x + width/2, y + height - (height/2-wobble/2), width/2+wobble, height/2-wobble/2, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(21, 128, 61, 0.9)'; ctx.beginPath(); ctx.arc(x + width/2, y + height - 18, 10, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.5)';
+      ctx.beginPath(); ctx.ellipse(x + width / 2, y + height - (height / 2 - wobble / 2), width / 2 + wobble, height / 2 - wobble / 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(21, 128, 61, 0.9)';
+      ctx.beginPath(); ctx.arc(x + width / 2, y + height - 18, 10, 0, Math.PI * 2); ctx.fill();
     } else if (type === 'BEHOLDER') {
       const float = Math.sin(time * 0.005) * 15;
       const fy = y + float;
       ctx.fillStyle = '#6D102A';
-      ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + width / 2, fy + height / 2, width / 2, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#6D102A'; ctx.lineWidth = 4;
-      for(let i=0; i<6; i++) {
-        const ang = (i * Math.PI) / 3; const tx = x + width/2 + Math.cos(ang) * 40; const ty = fy + height/2 + Math.sin(ang) * 40;
-        ctx.beginPath(); ctx.moveTo(x+width/2, fy+height/2); ctx.lineTo(tx, ty); ctx.stroke();
-        ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(tx, ty, 6, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI*2); ctx.fill();
+      for (let i = 0; i < 6; i++) {
+        const ang = (i * Math.PI) / 3;
+        const tx = x + width / 2 + Math.cos(ang) * 40;
+        const ty = fy + height / 2 + Math.sin(ang) * 40;
+        ctx.beginPath(); ctx.moveTo(x + width / 2, fy + height / 2); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(tx, ty, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(tx, ty, 3, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width/2, fy + height/2, width/4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(x + width/2 + Math.cos(time*0.004)*8, fy + height/2 + Math.sin(time*0.004)*5, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(x + width / 2, fy + height / 2, width / 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'red';
+      ctx.beginPath(); ctx.arc(x + width / 2 + Math.cos(time * 0.004) * 8, fy + height / 2 + Math.sin(time * 0.004) * 5, 8, 0, Math.PI * 2); ctx.fill();
     } else if (type === 'GHOST') {
       const hover = Math.sin(time * 0.006) * 10;
-      ctx.globalAlpha = 0.6 + Math.sin(time*0.01)*0.2;
+      ctx.globalAlpha = 0.6 + Math.sin(time * 0.01) * 0.2;
       ctx.fillStyle = '#F1F5F9';
-      ctx.beginPath(); ctx.moveTo(x + width/2, y + hover); ctx.quadraticCurveTo(x + width, y + hover, x + width, y + height/2 + hover); ctx.quadraticCurveTo(x + width, y + height + hover + Math.sin(time*0.01)*10, x + width/2, y + height - 10 + hover); ctx.quadraticCurveTo(x, y + height + hover + Math.sin(time*0.01)*10, x, y + height/2 + hover); ctx.quadraticCurveTo(x, y + hover, x + width/2, y + hover); ctx.fill();
-      ctx.fillStyle = '#0EA5E9'; ctx.beginPath(); ctx.arc(x+15, y+25+hover, 4, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+width-15, y+25+hover, 4, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + width / 2, y + hover);
+      ctx.quadraticCurveTo(x + width, y + hover, x + width, y + height / 2 + hover);
+      ctx.quadraticCurveTo(x + width, y + height + hover + Math.sin(time * 0.01) * 10, x + width / 2, y + height - 10 + hover);
+      ctx.quadraticCurveTo(x, y + height + hover + Math.sin(time * 0.01) * 10, x, y + height / 2 + hover);
+      ctx.quadraticCurveTo(x, y + hover, x + width / 2, y + hover);
+      ctx.fill();
+      ctx.fillStyle = '#0EA5E9';
+      ctx.beginPath(); ctx.arc(x + 15, y + 25 + hover, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + width - 15, y + 25 + hover, 4, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1.0;
     } else {
       ctx.fillStyle = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS]?.color || 'red';
@@ -682,91 +701,67 @@ const GameCanvas: React.FC = () => {
 
   const drawBackground = (ctx: CanvasRenderingContext2D) => {
     const W = ctx.canvas.width;
-    const H = ctx.canvas.height;
     const time = Date.now();
 
-    // Самый дальний слой: чёрный фон
     ctx.fillStyle = '#050406';
     ctx.fillRect(0, 0, W, GROUND_Y);
 
-    // Слой факелов
     let farOffset = gameRef.current.parallax[0] % 400;
     for (let x = -farOffset; x < W + 400; x += 400) {
       const tx = x + 150; const ty = 250;
       const flicker = Math.random() * 8;
-
       const grad = ctx.createRadialGradient(tx, ty, 3, tx, ty, 65 + flicker);
       grad.addColorStop(0, 'rgba(245, 158, 11, 0.5)');
       grad.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.arc(tx, ty, 65 + flicker, 0, Math.PI * 2); ctx.fill();
-
       ctx.fillStyle = '#F59E0B';
-      ctx.beginPath(); ctx.moveTo(tx-6, ty+8); ctx.quadraticCurveTo(tx, ty-15-flicker, tx+6, ty+8); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(tx - 6, ty + 8); ctx.quadraticCurveTo(tx, ty - 15 - flicker, tx + 6, ty + 8); ctx.fill();
     }
 
-    // --- Слой мерцающей пыли (исправленный) ---
     const time2 = Date.now();
     gameRef.current.ambientParticles.forEach(p => {
       const twinkle = Math.sin(time2 * 0.002 + p.phase);
       const twinkleSlow = Math.sin(time2 * 0.0007 + p.phase * 1.3);
       const currentOpacity = Math.max(0.05, p.baseOpacity + twinkle * 0.2 + twinkleSlow * 0.1);
-
       const isBlue = p.phase > Math.PI;
 
-      // Крупные частицы — с мягким свечением
       if (p.size > 1.8) {
         const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5);
-        glow.addColorStop(0, isBlue
-          ? `rgba(147,197,253,${(currentOpacity * 0.9).toFixed(3)})`
-          : `rgba(253,224,71,${(currentOpacity * 0.9).toFixed(3)})`);
-        glow.addColorStop(0.5, isBlue
-          ? `rgba(96,165,250,${(currentOpacity * 0.3).toFixed(3)})`
-          : `rgba(234,179,8,${(currentOpacity * 0.3).toFixed(3)})`);
+        glow.addColorStop(0, isBlue ? `rgba(147,197,253,${(currentOpacity * 0.9).toFixed(3)})` : `rgba(253,224,71,${(currentOpacity * 0.9).toFixed(3)})`);
+        glow.addColorStop(0.5, isBlue ? `rgba(96,165,250,${(currentOpacity * 0.3).toFixed(3)})` : `rgba(234,179,8,${(currentOpacity * 0.3).toFixed(3)})`);
         glow.addColorStop(1, 'transparent');
         ctx.globalAlpha = 1.0;
         ctx.fillStyle = glow;
         ctx.fillRect(p.x - p.size * 5, p.y - p.size * 5, p.size * 10, p.size * 10);
       }
 
-      // Сама пылинка — fillRect надёжнее arc для маленьких размеров
       const dotSize = Math.max(1, p.size);
       ctx.globalAlpha = currentOpacity;
       ctx.fillStyle = isBlue ? '#93C5FD' : '#FDE047';
       ctx.fillRect(p.x - dotSize / 2, p.y - dotSize / 2, dotSize, dotSize);
 
-      // Движение
       p.x -= p.speed * (engineRef.current.speed / 5);
       p.y += p.vy + Math.sin(time2 * 0.001 + p.phase) * 0.08;
-
-      if (p.x < -10) {
-        p.x = W + 10;
-        p.y = Math.random() * GROUND_Y;
-      }
+      if (p.x < -10) { p.x = W + 10; p.y = Math.random() * GROUND_Y; }
       if (p.y < 0) p.y = GROUND_Y - 5;
       if (p.y > GROUND_Y) p.y = 0;
     });
     ctx.globalAlpha = 1.0;
 
-    // Слой арок
     let archOffset = gameRef.current.parallax[1] % 500;
     for (let x = -archOffset; x < W + 500; x += 500) {
       ctx.fillStyle = '#16131C';
       const columnWidth = 140; const columnX = x + 180;
-      ctx.beginPath();
-      ctx.roundRect(columnX, 100, columnWidth, GROUND_Y - 100, [70, 70, 0, 0]);
-      ctx.fill();
+      ctx.beginPath(); ctx.roundRect(columnX, 100, columnWidth, GROUND_Y - 100, [70, 70, 0, 0]); ctx.fill();
       ctx.strokeStyle = '#1E1A26'; ctx.lineWidth = 1;
-      for(let i=0; i<5; i++) {
-        ctx.beginPath(); ctx.moveTo(columnX + 20, 250 + i*80); ctx.lineTo(columnX + columnWidth - 20, 250 + i*80); ctx.stroke();
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath(); ctx.moveTo(columnX + 20, 250 + i * 80); ctx.lineTo(columnX + columnWidth - 20, 250 + i * 80); ctx.stroke();
       }
     }
 
-    // Слой пола
-    ctx.fillStyle = '#050406';
-    ctx.fillRect(0, GROUND_Y, W, VIRTUAL_HEIGHT - GROUND_Y);
-    ctx.fillStyle = '#6226B3';
-    ctx.fillRect(0, GROUND_Y, W, 4);
+    ctx.fillStyle = '#050406'; ctx.fillRect(0, GROUND_Y, W, VIRTUAL_HEIGHT - GROUND_Y);
+    ctx.fillStyle = '#6226B3'; ctx.fillRect(0, GROUND_Y, W, 4);
     let floorOffset = gameRef.current.parallax[2] % 120;
     ctx.strokeStyle = '#1A1621'; ctx.lineWidth = 2;
     for (let x = -floorOffset; x < W + 120; x += 120) {
@@ -799,7 +794,7 @@ const GameCanvas: React.FC = () => {
       ctx.restore();
     });
 
-    // Частицы (эффекты)
+    // Частицы
     gameRef.current.particles.forEach((p, i) => {
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
@@ -821,7 +816,6 @@ const GameCanvas: React.FC = () => {
       }
     }
 
-    // Экран старта
     if (gameState === 'START') {
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, W, H);
@@ -832,7 +826,7 @@ const GameCanvas: React.FC = () => {
     }
   }, [gameState, invulnerableUntil, drawBackground]);
 
-  const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number, timestamp: number }) => {
+  const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number; timestamp: number }) => {
     if (gameState === 'PLAYING') {
       const dtFactor = deltaTime / 16.67;
       const W = canvasRef.current?.width || 450;
@@ -860,32 +854,32 @@ const GameCanvas: React.FC = () => {
       const scoreMultiplier = selectedClass?.name === 'WIZARD' ? 1.25 : 1.0;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1 * scoreMultiplier;
 
-      if (selectedClass?.name === 'BARD' && timestamp - lastRegenRef.current > 20000) {
-        if (hp < maxHp) { heal(1); addLog("БАРД: РЕГЕНЕРАЦИЯ (+1 HP)", 'success'); }
+      // Бард — регенерация каждые 13 сек (было 20)
+      if (selectedClass?.name === 'BARD' && timestamp - lastRegenRef.current > 13000) {
+        if (hp < maxHp) { heal(1); addLog('БАРД: РЕГЕНЕРАЦИЯ (+1 HP)', 'success'); }
         lastRegenRef.current = timestamp;
       }
 
-      // Спавн монет
+      // ── Спавн монет (2 монеты, шаг 58px) ──────────────────────────────
       if (Math.random() < 0.015 * dtFactor) {
         const startX = W + 100;
         const targetY = Math.random() > 0.6 ? GROUND_Y - 40 : GROUND_Y - 140;
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 2; i++) {
           coins.push({
             id: Math.random().toString(),
-            x: startX + (i * 40),
+            x: startX + i * 58,
             y: targetY,
             width: 20, height: 20,
-            collected: false, frame: Math.random() * 10
+            collected: false, frame: Math.random() * 10,
           });
         }
       }
 
-      // Логика монет
+      // ── Логика монет ──────────────────────────────────────────────────
       for (let i = coins.length - 1; i >= 0; i--) {
         const c = coins[i];
         c.x -= currentSpeed * dtFactor;
         c.frame += 0.1;
-
         if (!c.collected && checkCollision(player, 5, c, 5)) {
           c.collected = true;
           engineRef.current.collectedCoins += 1;
@@ -895,43 +889,80 @@ const GameCanvas: React.FC = () => {
         if (c.x < -100 || c.collected) coins.splice(i, 1);
       }
 
-      // Спавн монстров
-      if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed/5)) && Math.random() < 0.04 * dtFactor) {
-        const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
-        const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
-        const config = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS] || ASSET_MANIFEST.MONSTERS.SLIME;
+      // ── СИСТЕМА ПАТТЕРНОВ ─────────────────────────────────────────────
+      const now = timestamp;
 
-        let yPos = GROUND_Y - config.height;
-        if (config.type === 'AIR_LOW') yPos = GROUND_Y - 110;
-        if (config.type === 'AIR_HIGH') yPos = GROUND_Y - 200;
+      // Выбрать новый паттерн когда очередь пуста и кулдаун прошёл
+      if (gameRef.current.patternQueue.length === 0 && now > gameRef.current.nextPatternTime) {
+        const available = MONSTER_PATTERNS.filter(
+          p => !p.minSpeed || currentSpeed >= p.minSpeed
+        );
+        const pattern = available[Math.floor(Math.random() * available.length)];
 
-        monsters.push({
-          id: Math.random().toString(),
-          type,
-          obstacleType: config.type as any,
-          x: W + 150,
-          y: yPos,
-          width: config.width,
-          height: config.height,
-          speed: currentSpeed,
+        let offset = 0;
+        pattern.spawns.forEach(spawn => {
+          offset += spawn.xGap;
+          gameRef.current.patternQueue.push({
+            type: spawn.type,
+            // конвертируем pixel-gap во время через текущую скорость
+            spawnAt: now + (offset / currentSpeed) * 16,
+          });
         });
-        gameRef.current.collisionCooldown = timestamp;
+
+        // Кулдаун между паттернами: от 3800мс (медленно) до 1400мс (быстро)
+        const baseCooldown = Math.max(1400, 3800 - (currentSpeed - 5) * 200);
+        gameRef.current.nextPatternTime = now + baseCooldown + (offset / currentSpeed) * 16;
       }
 
-      // Обработка монстров
+      // Спавнить монстров из очереди по таймеру
+      for (let qi = gameRef.current.patternQueue.length - 1; qi >= 0; qi--) {
+        const queued = gameRef.current.patternQueue[qi];
+        if (now >= queued.spawnAt) {
+          const type = queued.type;
+          const config =
+            ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS] ||
+            ASSET_MANIFEST.MONSTERS.SLIME;
+
+          let yPos = GROUND_Y - config.height;
+          if (config.type === 'AIR_LOW') yPos = GROUND_Y - 110;
+          if (config.type === 'AIR_HIGH') yPos = GROUND_Y - 200;
+
+          monsters.push({
+            id: Math.random().toString(),
+            type,
+            obstacleType: config.type as any,
+            x: W + 150,
+            y: yPos,
+            width: config.width,
+            height: config.height,
+            speed: currentSpeed,
+          });
+
+          gameRef.current.patternQueue.splice(qi, 1);
+        }
+      }
+
+      // ── Обработка монстров ────────────────────────────────────────────
       for (let i = monsters.length - 1; i >= 0; i--) {
         const m = monsters[i];
         m.x -= currentSpeed * dtFactor;
 
-        const monsterConfig = ASSET_MANIFEST.MONSTERS[m.type as keyof typeof ASSET_MANIFEST.MONSTERS] || ASSET_MANIFEST.MONSTERS.SLIME;
-        if (checkCollision(player, ASSET_MANIFEST.PLAYER.hitboxPadding, m, monsterConfig.hitboxPadding) && Date.now() > invulnerableUntil) {
-          setIsShaking(true); setTimeout(() => setIsShaking(false), 300);
+        const monsterConfig =
+          ASSET_MANIFEST.MONSTERS[m.type as keyof typeof ASSET_MANIFEST.MONSTERS] ||
+          ASSET_MANIFEST.MONSTERS.SLIME;
+
+        if (
+          checkCollision(player, ASSET_MANIFEST.PLAYER.hitboxPadding, m, monsterConfig.hitboxPadding) &&
+          Date.now() > invulnerableUntil
+        ) {
+          setIsShaking(true);
+          setTimeout(() => setIsShaking(false), 300);
 
           if (selectedClass) {
             const check = performACCheck(selectedClass.armorClass);
             if (check.type === 'SUCCESS' || check.type === 'CRIT_SUCCESS') {
               addLog(check.message, 'success');
-              setInvulnerableUntil(Date.now() + 1000);
+              setInvulnerableUntil(Date.now() + 1400); // ↑ было 1000
             } else {
               addLog(check.message, 'fail');
               takeDamage(1);
@@ -962,6 +993,8 @@ const GameCanvas: React.FC = () => {
     gameRef.current.monsters = [];
     gameRef.current.particles = [];
     gameRef.current.coins = [];
+    gameRef.current.patternQueue = [];       // сброс очереди паттернов
+    gameRef.current.nextPatternTime = 0;     // сброс таймера паттернов
     gameRef.current.player.y = GROUND_Y - ASSET_MANIFEST.PLAYER.height;
     gameRef.current.player.vy = 0;
     gameRef.current.player.maxJumps = currentCls.maxJumps || 1;
@@ -984,7 +1017,12 @@ const GameCanvas: React.FC = () => {
         player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1.0);
         const isSecond = player.jumpsRemaining < player.maxJumps;
         player.jumpsRemaining--;
-        createJumpEffect(player.x + player.width / 2, player.y + player.height, isSecond ? '#A855F7' : '#6226B3', isSecond);
+        createJumpEffect(
+          player.x + player.width / 2,
+          player.y + player.height,
+          isSecond ? '#A855F7' : '#6226B3',
+          isSecond
+        );
       }
     }
   }, [gameState, selectedClass, JUMP_STRENGTH]);
@@ -997,10 +1035,17 @@ const GameCanvas: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleInput]);
 
-  if (!isImageLoaded) return <div className="flex flex-col items-center justify-center bg-[#0A080D] w-full h-full"><Loader2 className="w-12 h-12 text-primary animate-spin" /></div>;
+  if (!isImageLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center bg-[#0A080D] w-full h-full">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]"
+    <div
+      className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]"
       onClick={handleInput}
     >
       {gameState === 'CLASS_SELECTION' && (
@@ -1010,12 +1055,16 @@ const GameCanvas: React.FC = () => {
             {(Object.keys(CHARACTER_CLASSES) as CharacterClassName[]).map((key) => {
               const cls = CHARACTER_CLASSES[key];
               return (
-                <button key={key} onClick={() => { selectClass(key); startNewGame(cls); }} className="bg-[#1A1621] border-2 border-primary p-4 active:scale-95 transition-all">
+                <button
+                  key={key}
+                  onClick={() => { selectClass(key); startNewGame(cls); }}
+                  className="bg-[#1A1621] border-2 border-primary p-4 active:scale-95 transition-all"
+                >
                   <div className="flex flex-col items-center gap-2">
                     {key === 'FIGHTER' && <Shield className="text-primary w-6 h-6" />}
-                    {key === 'ROGUE' && <Zap className="text-accent w-6 h-6" />}
-                    {key === 'WIZARD' && <Wand2 className="text-secondary w-6 h-6" />}
-                    {key === 'BARD' && <Music className="text-pink-400 w-6 h-6" />}
+                    {key === 'ROGUE'   && <Zap    className="text-accent w-6 h-6" />}
+                    {key === 'WIZARD'  && <Wand2  className="text-secondary w-6 h-6" />}
+                    {key === 'BARD'    && <Music  className="text-pink-400 w-6 h-6" />}
                     <span className="text-[10px] font-bold uppercase">{cls.label}</span>
                   </div>
                 </button>
@@ -1028,8 +1077,8 @@ const GameCanvas: React.FC = () => {
       <div
         ref={containerRef}
         className={cn(
-          "relative flex-1 w-full cursor-pointer overflow-hidden bg-black flex items-center justify-center",
-          isShaking && "animate-shake"
+          'relative flex-1 w-full cursor-pointer overflow-hidden bg-black flex items-center justify-center',
+          isShaking && 'animate-shake'
         )}
       >
         <div className="relative w-full h-full">
@@ -1070,7 +1119,12 @@ const GameCanvas: React.FC = () => {
               <h2 className="text-xl text-red-500 mb-2 uppercase glow-text">ФИНАЛ</h2>
               <p className="text-[10px] text-white mb-4 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
               <Leaderboard />
-              <button onClick={handleInput} className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6 active:translate-y-1 active:shadow-none">ИГРАТЬ СНОВА</button>
+              <button
+                onClick={handleInput}
+                className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6 active:translate-y-1 active:shadow-none"
+              >
+                ИГРАТЬ СНОВА
+              </button>
             </div>
           )}
         </div>
@@ -1078,7 +1132,13 @@ const GameCanvas: React.FC = () => {
 
       <div className="w-full h-[25vh] bg-[#050406] p-4 overflow-y-auto flex flex-col gap-2 border-t-2 border-primary/20">
         {combatLog.map((log) => (
-          <div key={log.id} className={cn("text-[8px] uppercase flex items-center gap-2", log.type === 'success' ? 'text-green-400' : log.type === 'fail' ? 'text-red-400' : 'text-gray-500')}>
+          <div
+            key={log.id}
+            className={cn(
+              'text-[8px] uppercase flex items-center gap-2',
+              log.type === 'success' ? 'text-green-400' : log.type === 'fail' ? 'text-red-400' : 'text-gray-500'
+            )}
+          >
             <Sword size={10} /> {log.text}
           </div>
         ))}
