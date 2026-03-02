@@ -38,7 +38,7 @@ export const CHARACTER_CLASSES: Record<CharacterClassName, CharacterClass> = {
     description: 'Мастер щита. Самая высокая броня (AC 15) и здоровье.',
     armorClass: 15,
     maxHp: 6,
-    jumpMultiplier: 0.9,   // ↓ тяжёлый, прыжок ниже стандарта
+    jumpMultiplier: 1.0,   // ↓ тяжёлый, прыжок ниже стандарта
     maxJumps: 1,
     abilityName: 'БАСТИОН (Пассивно)',
     abilityCooldown: 0,
@@ -62,7 +62,7 @@ export const CHARACTER_CLASSES: Record<CharacterClassName, CharacterClass> = {
     description: 'Магическое предвидение. +25% к получаемым очкам.',
     armorClass: 10,
     maxHp: 3,
-    jumpMultiplier: 1.12,   // ↓ было 1.45 — слишком высоко, теперь умеренно
+    jumpMultiplier: 1.0,   // ↓ было 1.45 — слишком высоко, теперь умеренно
     maxJumps: 1,
     abilityName: 'ПРЕДВИДЕНИЕ (Пассивно)',
     abilityCooldown: 0,
