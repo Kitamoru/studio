@@ -100,27 +100,30 @@ const GameCanvas: React.FC = () => {
       if (containerRef.current) {
         const { clientWidth, clientHeight } = containerRef.current;
         setCanvasSize({ width: clientWidth, height: clientHeight });
-
-        if (gameRef.current.ambientParticles.length === 0) {
-          for (let i = 0; i < 90; i++) {
-            gameRef.current.ambientParticles.push({
-              x: Math.random() * clientWidth,
-              y: Math.random() * GROUND_Y,
-              speed: 0.08 + Math.random() * 0.5,
-              vy: (Math.random() - 0.5) * 0.25,
-              size: 0.4 + Math.random() * 3.2,
-              baseOpacity: 0.12 + Math.random() * 0.45,
-              phase: Math.random() * Math.PI * 2
-            });
-          }
-        }
       }
     };
 
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
-  }, [GROUND_Y]);
+  }, []);
+
+  // Инициализация частиц — отдельно, гарантированно после получения размеров
+  useEffect(() => {
+    if (gameRef.current.ambientParticles.length > 0) return;
+    const W = canvasSize.width;
+    for (let i = 0; i < 90; i++) {
+      gameRef.current.ambientParticles.push({
+        x: Math.random() * W,
+        y: Math.random() * GROUND_Y,
+        speed: 0.08 + Math.random() * 0.5,
+        vy: (Math.random() - 0.5) * 0.25,
+        size: 1.5 + Math.random() * 3.0,
+        baseOpacity: 0.25 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }, [canvasSize.width, GROUND_Y]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
