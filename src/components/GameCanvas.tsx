@@ -429,21 +429,29 @@ const GameCanvas: React.FC = () => {
     // --- ГЛАЗ (вертикальный кошачий зрачок) ---
     const eyeX = headX + 30;
     const eyeY = headY + 16;
-    const eyeGlow = ctx.createRadialGradient(eyeX, eyeY, 0, eyeX, eyeY, 12);
-    eyeGlow.addColorStop(0, '#FEF08A');
-    eyeGlow.addColorStop(0.5, '#FBBF24');
-    eyeGlow.addColorStop(1, 'transparent');
+    // Свечение вокруг глаза (rgba вместо 'transparent' — иначе Canvas даёт тёмное кольцо)
+    const eyeGlow = ctx.createRadialGradient(eyeX, eyeY, 3, eyeX, eyeY, 14);
+    eyeGlow.addColorStop(0, 'rgba(254,240,138,0.9)');
+    eyeGlow.addColorStop(0.6, 'rgba(251,191,36,0.4)');
+    eyeGlow.addColorStop(1, 'rgba(251,191,36,0)');
     ctx.fillStyle = eyeGlow;
     ctx.beginPath();
-    ctx.arc(eyeX, eyeY, 12, 0, Math.PI * 2);
+    ctx.arc(eyeX, eyeY, 14, 0, Math.PI * 2);
     ctx.fill();
+    // Радужка — янтарная
     ctx.fillStyle = '#F59E0B';
     ctx.beginPath();
-    ctx.arc(eyeX, eyeY, 6, 0, Math.PI * 2);
+    ctx.arc(eyeX, eyeY, 7, 0, Math.PI * 2);
     ctx.fill();
+    // Зрачок — вертикальный, заметно уже радужки
     ctx.fillStyle = '#0C0A09';
     ctx.beginPath();
-    ctx.ellipse(eyeX, eyeY, 2, 5.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(eyeX, eyeY, 1.5, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Блик (делает глаз живым)
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath();
+    ctx.ellipse(eyeX + 2, eyeY - 2, 1.5, 1, 0.5, 0, Math.PI * 2);
     ctx.fill();
 
     // --- ЛАПЫ ---
