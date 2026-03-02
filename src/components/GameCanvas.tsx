@@ -41,95 +41,6 @@ interface Coin {
   frame: number;
 }
 
-// ─── MONSTER PATTERNS ────────────────────────────────────────────────────────
-type PatternSpawn = { type: MonsterType; xGap: number };
-
-interface MonsterPattern {
-  name: string;
-  spawns: PatternSpawn[];
-  minSpeed?: number;
-}
-
-const MONSTER_PATTERNS: MonsterPattern[] = [
-  // --- Простые (старт) ---
-  { name: 'single_slime',  spawns: [{ type: 'SLIME', xGap: 0 }] },
-  { name: 'single_bat',    spawns: [{ type: 'BAT',   xGap: 0 }] },
-  { name: 'single_ghost',  spawns: [{ type: 'GHOST', xGap: 0 }] },
-  { name: 'single_mimic',  spawns: [{ type: 'MIMIC', xGap: 0 }] },
-
-  // --- Средние (speed ≥ 7) ---
-  {
-    name: 'bat_slime',
-    minSpeed: 7,
-    spawns: [
-      { type: 'SLIME', xGap: 0   },
-      { type: 'BAT',   xGap: 260 },
-    ],
-  },
-  {
-    name: 'double_ground',
-    minSpeed: 7,
-    spawns: [
-      { type: 'SLIME', xGap: 0   },
-      { type: 'MIMIC', xGap: 320 },
-    ],
-  },
-  {
-    name: 'ghost_slime',
-    minSpeed: 7,
-    spawns: [
-      { type: 'GHOST', xGap: 0   },
-      { type: 'SLIME', xGap: 280 },
-    ],
-  },
-
-  // --- Сложные (speed ≥ 9) ---
-  {
-    name: 'trio_wave',
-    minSpeed: 9,
-    spawns: [
-      { type: 'BAT',   xGap: 0   },
-      { type: 'SLIME', xGap: 300 },
-      { type: 'GHOST', xGap: 180 },
-    ],
-  },
-  {
-    name: 'beholder_escort',
-    minSpeed: 9,
-    spawns: [
-      { type: 'SLIME',    xGap: 0   },
-      { type: 'BEHOLDER', xGap: 350 },
-      { type: 'SLIME',    xGap: 350 },
-    ],
-  },
-
-  // --- Боссы (speed ≥ 10) ---
-  {
-    name: 'dragon_solo',
-    minSpeed: 10,
-    spawns: [{ type: 'DRAGON', xGap: 0 }],
-  },
-  {
-    name: 'ogre_minions',
-    minSpeed: 10,
-    spawns: [
-      { type: 'SLIME', xGap: 0   },
-      { type: 'OGRE',  xGap: 400 },
-      { type: 'SLIME', xGap: 400 },
-    ],
-  },
-  {
-    name: 'dragon_bats',
-    minSpeed: 11,
-    spawns: [
-      { type: 'BAT',    xGap: 0   },
-      { type: 'DRAGON', xGap: 350 },
-      { type: 'BAT',    xGap: 350 },
-    ],
-  },
-];
-// ─────────────────────────────────────────────────────────────────────────────
-
 const GameCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -181,10 +92,7 @@ const GameCanvas: React.FC = () => {
     parallax: [0, 0, 0, 0],
     particles: [] as Particle[],
     ambientParticles: [] as AmbientParticle[],
-    collisionCooldown: 0,
-    // Система паттернов
-    patternQueue: [] as { type: MonsterType; spawnAt: number }[],
-    nextPatternTime: 0,
+    collisionCooldown: 0, // для интервала спавна
   });
 
   useEffect(() => {
@@ -854,7 +762,7 @@ const GameCanvas: React.FC = () => {
       const scoreMultiplier = selectedClass?.name === 'WIZARD' ? 1.25 : 1.0;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1 * scoreMultiplier;
 
-      // Бард — регенерация каждые 13 сек (было 20)
+      // Бард — регенерация каждые 13 сек
       if (selectedClass?.name === 'BARD' && timestamp - lastRegenRef.current > 13000) {
         if (hp < maxHp) { heal(1); addLog('БАРД: РЕГЕНЕРАЦИЯ (+1 HP)', 'success'); }
         lastRegenRef.current = timestamp;
@@ -889,57 +797,27 @@ const GameCanvas: React.FC = () => {
         if (c.x < -100 || c.collected) coins.splice(i, 1);
       }
 
-      // ── СИСТЕМА ПАТТЕРНОВ ─────────────────────────────────────────────
-      const now = timestamp;
+      // ── ПРОСТОЙ СЛУЧАЙНЫЙ СПАВН МОНСТРОВ (как во втором файле) ─────────
+      if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed / 5)) && Math.random() < 0.04 * dtFactor) {
+        const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
+        const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
+        const config = ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS] || ASSET_MANIFEST.MONSTERS.SLIME;
 
-      // Выбрать новый паттерн когда очередь пуста и кулдаун прошёл
-      if (gameRef.current.patternQueue.length === 0 && now > gameRef.current.nextPatternTime) {
-        const available = MONSTER_PATTERNS.filter(
-          p => !p.minSpeed || currentSpeed >= p.minSpeed
-        );
-        const pattern = available[Math.floor(Math.random() * available.length)];
+        let yPos = GROUND_Y - config.height;
+        if (config.type === 'AIR_LOW') yPos = GROUND_Y - 110;
+        if (config.type === 'AIR_HIGH') yPos = GROUND_Y - 200;
 
-        let offset = 0;
-        pattern.spawns.forEach(spawn => {
-          offset += spawn.xGap;
-          gameRef.current.patternQueue.push({
-            type: spawn.type,
-            // конвертируем pixel-gap во время через текущую скорость
-            spawnAt: now + (offset / currentSpeed) * 16,
-          });
+        monsters.push({
+          id: Math.random().toString(),
+          type,
+          obstacleType: config.type as any,
+          x: W + 150,
+          y: yPos,
+          width: config.width,
+          height: config.height,
+          speed: currentSpeed,
         });
-
-        // Кулдаун между паттернами: от 3800мс (медленно) до 1400мс (быстро)
-        const baseCooldown = Math.max(1400, 3800 - (currentSpeed - 5) * 200);
-        gameRef.current.nextPatternTime = now + baseCooldown + (offset / currentSpeed) * 16;
-      }
-
-      // Спавнить монстров из очереди по таймеру
-      for (let qi = gameRef.current.patternQueue.length - 1; qi >= 0; qi--) {
-        const queued = gameRef.current.patternQueue[qi];
-        if (now >= queued.spawnAt) {
-          const type = queued.type;
-          const config =
-            ASSET_MANIFEST.MONSTERS[type as keyof typeof ASSET_MANIFEST.MONSTERS] ||
-            ASSET_MANIFEST.MONSTERS.SLIME;
-
-          let yPos = GROUND_Y - config.height;
-          if (config.type === 'AIR_LOW') yPos = GROUND_Y - 110;
-          if (config.type === 'AIR_HIGH') yPos = GROUND_Y - 200;
-
-          monsters.push({
-            id: Math.random().toString(),
-            type,
-            obstacleType: config.type as any,
-            x: W + 150,
-            y: yPos,
-            width: config.width,
-            height: config.height,
-            speed: currentSpeed,
-          });
-
-          gameRef.current.patternQueue.splice(qi, 1);
-        }
+        gameRef.current.collisionCooldown = timestamp;
       }
 
       // ── Обработка монстров ────────────────────────────────────────────
@@ -962,7 +840,7 @@ const GameCanvas: React.FC = () => {
             const check = performACCheck(selectedClass.armorClass);
             if (check.type === 'SUCCESS' || check.type === 'CRIT_SUCCESS') {
               addLog(check.message, 'success');
-              setInvulnerableUntil(Date.now() + 1400); // ↑ было 1000
+              setInvulnerableUntil(Date.now() + 1400);
             } else {
               addLog(check.message, 'fail');
               takeDamage(1);
@@ -993,8 +871,7 @@ const GameCanvas: React.FC = () => {
     gameRef.current.monsters = [];
     gameRef.current.particles = [];
     gameRef.current.coins = [];
-    gameRef.current.patternQueue = [];       // сброс очереди паттернов
-    gameRef.current.nextPatternTime = 0;     // сброс таймера паттернов
+    gameRef.current.collisionCooldown = 0; // сброс кулдауна
     gameRef.current.player.y = GROUND_Y - ASSET_MANIFEST.PLAYER.height;
     gameRef.current.player.vy = 0;
     gameRef.current.player.maxJumps = currentCls.maxJumps || 1;
