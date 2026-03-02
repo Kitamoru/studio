@@ -694,39 +694,35 @@ const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.moveTo(tx-6, ty+8); ctx.quadraticCurveTo(tx, ty-15-flicker, tx+6, ty+8); ctx.fill();
     }
 
-    // --- Слой мерцающей пыли (улучшенный) ---
+    // --- Слой мерцающей пыли (исправленный) ---
     const time2 = Date.now();
     gameRef.current.ambientParticles.forEach(p => {
       const twinkle = Math.sin(time2 * 0.002 + p.phase);
       const twinkleSlow = Math.sin(time2 * 0.0007 + p.phase * 1.3);
-      const currentOpacity = Math.max(0, p.baseOpacity + twinkle * 0.2 + twinkleSlow * 0.1);
+      const currentOpacity = Math.max(0.05, p.baseOpacity + twinkle * 0.2 + twinkleSlow * 0.1);
 
-      // Два вида: золотые и синеватые
       const isBlue = p.phase > Math.PI;
 
       // Крупные частицы — с мягким свечением
       if (p.size > 1.8) {
-        const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3.5);
+        const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5);
         glow.addColorStop(0, isBlue
-          ? `rgba(147,197,253,${currentOpacity * 0.85})`
-          : `rgba(253,224,71,${currentOpacity * 0.85})`);
+          ? `rgba(147,197,253,${(currentOpacity * 0.9).toFixed(3)})`
+          : `rgba(253,224,71,${(currentOpacity * 0.9).toFixed(3)})`);
         glow.addColorStop(0.5, isBlue
-          ? `rgba(96,165,250,${currentOpacity * 0.3})`
-          : `rgba(234,179,8,${currentOpacity * 0.3})`);
+          ? `rgba(96,165,250,${(currentOpacity * 0.3).toFixed(3)})`
+          : `rgba(234,179,8,${(currentOpacity * 0.3).toFixed(3)})`);
         glow.addColorStop(1, 'transparent');
+        ctx.globalAlpha = 1.0;
         ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 3.5, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(p.x - p.size * 5, p.y - p.size * 5, p.size * 10, p.size * 10);
       }
 
-      // Сама пылинка
-      ctx.fillStyle = isBlue
-        ? `rgba(147,197,253,${currentOpacity})`
-        : `rgba(234,179,8,${currentOpacity})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * 0.9, 0, Math.PI * 2);
-      ctx.fill();
+      // Сама пылинка — fillRect надёжнее arc для маленьких размеров
+      const dotSize = Math.max(1, p.size);
+      ctx.globalAlpha = currentOpacity;
+      ctx.fillStyle = isBlue ? '#93C5FD' : '#FDE047';
+      ctx.fillRect(p.x - dotSize / 2, p.y - dotSize / 2, dotSize, dotSize);
 
       // Движение
       p.x -= p.speed * (engineRef.current.speed / 5);
@@ -739,6 +735,7 @@ const GameCanvas: React.FC = () => {
       if (p.y < 0) p.y = GROUND_Y - 5;
       if (p.y > GROUND_Y) p.y = 0;
     });
+    ctx.globalAlpha = 1.0;
 
     // Слой арок
     let archOffset = gameRef.current.parallax[1] % 500;
