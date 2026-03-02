@@ -118,8 +118,8 @@ const GameCanvas: React.FC = () => {
         y: Math.random() * GROUND_Y,
         speed: 0.08 + Math.random() * 0.5,
         vy: (Math.random() - 0.5) * 0.25,
-        size: 1.5 + Math.random() * 3.0,
-        baseOpacity: 0.25 + Math.random() * 0.5,
+        size: 0.6 + Math.random() * 1.4,
+        baseOpacity: 0.1 + Math.random() * 0.25,
         phase: Math.random() * Math.PI * 2
       });
     }
