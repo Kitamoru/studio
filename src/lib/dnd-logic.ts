@@ -1,7 +1,6 @@
 /**
  * Утилиты для D&D механик
  */
-
 export const rollDice = (sides: number = 20): number => {
   return Math.floor(Math.random() * sides) + 1;
 };
@@ -16,7 +15,7 @@ export interface D20CheckResult {
 
 export const performACCheck = (armorClass: number): D20CheckResult => {
   const roll = rollDice(20);
-  
+
   if (roll === 1) {
     return { roll, type: 'CRIT_FAIL', message: 'КРИТИЧЕСКИЙ ПРОВАЛ! Урон получен.' };
   }
@@ -35,10 +34,11 @@ export const CHARACTER_CLASSES: Record<CharacterClassName, CharacterClass> = {
   FIGHTER: {
     name: 'FIGHTER',
     label: 'ВОИН',
+    // Тяжёлая броня снижает прыжок — компенсируется высоким AC и HP
     description: 'Мастер щита. Самая высокая броня (AC 15) и здоровье.',
     armorClass: 15,
     maxHp: 6,
-    jumpMultiplier: 1.0,
+    jumpMultiplier: 0.9,   // ↓ тяжёлый, прыжок ниже стандарта
     maxJumps: 1,
     abilityName: 'БАСТИОН (Пассивно)',
     abilityCooldown: 0,
@@ -46,21 +46,23 @@ export const CHARACTER_CLASSES: Record<CharacterClassName, CharacterClass> = {
   ROGUE: {
     name: 'ROGUE',
     label: 'ПЛУТ',
+    // Единственный класс с двойным прыжком — главное преимущество
     description: 'Неуловимый. Обладает ПАССИВНЫМ ДВОЙНЫМ ПРЫЖКОМ.',
     armorClass: 12,
     maxHp: 4,
-    jumpMultiplier: 1.1,
-    maxJumps: 2,
+    jumpMultiplier: 1.08,   // чуть выше базы, но двойной прыжок главная фишка
+    maxJumps: 2,            // ← только ROGUE получает двойной прыжок
     abilityName: 'ДВОЙНОЙ ПРЫЖОК (Пассивно)',
     abilityCooldown: 0,
   },
   WIZARD: {
     name: 'WIZARD',
     label: 'МАГ',
-    description: 'Магический поиск. +25% к получаемым очкам.',
+    // Хрупкий, но с бонусом к очкам — прыжок чуть выше для выживаемости
+    description: 'Магическое предвидение. +25% к получаемым очкам.',
     armorClass: 10,
     maxHp: 3,
-    jumpMultiplier: 1.45,
+    jumpMultiplier: 1.12,   // ↓ было 1.45 — слишком высоко, теперь умеренно
     maxJumps: 1,
     abilityName: 'ПРЕДВИДЕНИЕ (Пассивно)',
     abilityCooldown: 0,
@@ -68,10 +70,11 @@ export const CHARACTER_CLASSES: Record<CharacterClassName, CharacterClass> = {
   BARD: {
     name: 'BARD',
     label: 'БАРД',
-    description: 'Регенерация. Восстанавливает 1 HP каждые 20 сек.',
+    // Регенерация каждые 13 сек — обновлено с 20
+    description: 'Регенерация. Восстанавливает 1 HP каждые 13 сек.',
     armorClass: 11,
     maxHp: 5,
-    jumpMultiplier: 1.2,
+    jumpMultiplier: 1.0,    // стандартный прыжок — баланс под регенерацию
     maxJumps: 1,
     abilityName: 'ПЕСНЬ ОТДЫХА (Пассивно)',
     abilityCooldown: 0,
