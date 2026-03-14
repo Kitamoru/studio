@@ -60,6 +60,28 @@ const GameCanvas: React.FC = () => {
   const lastRegenRef = useRef(0);
   const scoreSavedRef = useRef(false);
 
+  // ─── ФИКС ИНПУТ-ЛАГА: рефы для gameState и selectedClass ────────────────
+  const gameStateRef = useRef<GameStatus>('START');
+  const selectedClassRef = useRef(selectedClass);
+  const invulnerableUntilRef = useRef(0);
+  const lastScoreUpdateRef = useRef(0);
+
+  // Синхронизируем рефы при изменении
+  useEffect(() => { selectedClassRef.current = selectedClass; }, [selectedClass]);
+
+  // Обёртка setGameState, синхронизирующая ref
+  const setGameStateSafe = useCallback((s: GameStatus) => {
+    gameStateRef.current = s;
+    setGameState(s);
+  }, []);
+
+  // Обёртка setInvulnerableUntil, синхронизирующая ref
+  const setInvulnerableUntilSafe = useCallback((t: number) => {
+    invulnerableUntilRef.current = t;
+    setInvulnerableUntil(t);
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────────
+
   const VIRTUAL_HEIGHT = 800;
   const GROUND_Y = VIRTUAL_HEIGHT - 100;
   const PLAYER_X = 60;
@@ -92,7 +114,7 @@ const GameCanvas: React.FC = () => {
     parallax: [0, 0, 0, 0],
     particles: [] as Particle[],
     ambientParticles: [] as AmbientParticle[],
-    collisionCooldown: 0, // для интервала спавна
+    collisionCooldown: 0,
   });
 
   useEffect(() => {
@@ -151,8 +173,8 @@ const GameCanvas: React.FC = () => {
     scoreSavedRef.current = true;
     try {
       const payload = initData
-        ? { initData, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null }
-        : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClass?.name ?? null };
+        ? { initData, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClassRef.current?.name ?? null }
+        : { telegramId: user!.id, username: user!.displayName, score: Math.floor(engineRef.current.distance), coins: engineRef.current.collectedCoins, characterClass: selectedClassRef.current?.name ?? null };
 
       await fetch('/api/game/score', {
         method: 'POST',
@@ -163,7 +185,7 @@ const GameCanvas: React.FC = () => {
     } catch (err) {
       console.error('Failed to save score:', err);
     }
-  }, [initData, user, selectedClass]);
+  }, [initData, user]);
 
   useEffect(() => {
     if (gameState === 'GAME_OVER') saveScore();
@@ -717,14 +739,14 @@ const GameCanvas: React.FC = () => {
 
     // Игрок
     const p = gameRef.current.player;
-    const isInvul = Date.now() < invulnerableUntil;
+    const isInvul = Date.now() < invulnerableUntilRef.current;
     if (!(isInvul && Math.floor(Date.now() / 100) % 2 === 0)) {
       if (playerImgRef.current) {
         ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
       }
     }
 
-    if (gameState === 'START') {
+    if (gameStateRef.current === 'START') {
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#6226B3';
@@ -732,10 +754,10 @@ const GameCanvas: React.FC = () => {
       ctx.textAlign = 'center';
       ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', W / 2, H / 2 - 50);
     }
-  }, [gameState, invulnerableUntil, drawBackground]);
+  }, [drawBackground]);
 
   const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number; timestamp: number }) => {
-    if (gameState === 'PLAYING') {
+    if (gameStateRef.current === 'PLAYING') {
       const dtFactor = deltaTime / 16.67;
       const W = canvasRef.current?.width || 450;
 
@@ -759,11 +781,12 @@ const GameCanvas: React.FC = () => {
         player.jumpsRemaining = player.maxJumps;
       }
 
-      const scoreMultiplier = selectedClass?.name === 'WIZARD' ? 1.25 : 1.0;
+      const cls = selectedClassRef.current;
+      const scoreMultiplier = cls?.name === 'WIZARD' ? 1.25 : 1.0;
       engineRef.current.distance += currentSpeed * dtFactor * 0.1 * scoreMultiplier;
 
       // Бард — регенерация каждые 13 сек
-      if (selectedClass?.name === 'BARD' && timestamp - lastRegenRef.current > 13000) {
+      if (cls?.name === 'BARD' && timestamp - lastRegenRef.current > 13000) {
         if (hp < maxHp) { heal(1); addLog('БАРД: РЕГЕНЕРАЦИЯ (+1 HP)', 'success'); }
         lastRegenRef.current = timestamp;
       }
@@ -797,7 +820,7 @@ const GameCanvas: React.FC = () => {
         if (c.x < -100 || c.collected) coins.splice(i, 1);
       }
 
-      // ── ПРОСТОЙ СЛУЧАЙНЫЙ СПАВН МОНСТРОВ (как во втором файле) ─────────
+      // ── СПАВН МОНСТРОВ ────────────────────────────────────────────────
       if (timestamp - gameRef.current.collisionCooldown > (1800 / (currentSpeed / 5)) && Math.random() < 0.04 * dtFactor) {
         const monsterTypes: MonsterType[] = ['SLIME', 'MIMIC', 'BEHOLDER', 'BAT', 'DRAGON', 'OGRE', 'GHOST'];
         const type = monsterTypes[Math.floor(Math.random() * monsterTypes.length)];
@@ -831,36 +854,42 @@ const GameCanvas: React.FC = () => {
 
         if (
           checkCollision(player, ASSET_MANIFEST.PLAYER.hitboxPadding, m, monsterConfig.hitboxPadding) &&
-          Date.now() > invulnerableUntil
+          Date.now() > invulnerableUntilRef.current
         ) {
           setIsShaking(true);
           setTimeout(() => setIsShaking(false), 300);
 
-          if (selectedClass) {
-            const check = performACCheck(selectedClass.armorClass);
+          const currentCls = selectedClassRef.current;
+          if (currentCls) {
+            const check = performACCheck(currentCls.armorClass);
             if (check.type === 'SUCCESS' || check.type === 'CRIT_SUCCESS') {
               addLog(check.message, 'success');
-              setInvulnerableUntil(Date.now() + 1400);
+              setInvulnerableUntilSafe(Date.now() + 1400);
             } else {
               addLog(check.message, 'fail');
               takeDamage(1);
-              setInvulnerableUntil(Date.now() + 1500);
+              setInvulnerableUntilSafe(Date.now() + 1500);
             }
           }
         }
         if (m.x + m.width < -200) monsters.splice(i, 1);
       }
 
-      if (hp <= 0) setGameState('GAME_OVER');
-      setScore(Math.floor(engineRef.current.distance));
+      if (hp <= 0) setGameStateSafe('GAME_OVER');
+
+      // ── ФИКС: обновляем score не каждый кадр, а раз в 200ms ──────────
+      if (timestamp - lastScoreUpdateRef.current > 200) {
+        setScore(Math.floor(engineRef.current.distance));
+        lastScoreUpdateRef.current = timestamp;
+      }
     }
     draw();
-  }, [gameState, hp, maxHp, selectedClass, invulnerableUntil, addLog, takeDamage, heal, draw, GROUND_Y, GRAVITY]);
+  }, [hp, maxHp, addLog, takeDamage, heal, draw, setGameStateSafe, setInvulnerableUntilSafe]);
 
   useGameLoop(handleUpdate, true);
 
   const startNewGame = useCallback((cls?: any) => {
-    const currentCls = cls || selectedClass;
+    const currentCls = cls || selectedClassRef.current;
     if (!currentCls) return;
 
     engineRef.current.elapsedTime = 0;
@@ -871,27 +900,34 @@ const GameCanvas: React.FC = () => {
     gameRef.current.monsters = [];
     gameRef.current.particles = [];
     gameRef.current.coins = [];
-    gameRef.current.collisionCooldown = 0; // сброс кулдауна
+    gameRef.current.collisionCooldown = 0;
     gameRef.current.player.y = GROUND_Y - ASSET_MANIFEST.PLAYER.height;
     gameRef.current.player.vy = 0;
     gameRef.current.player.maxJumps = currentCls.maxJumps || 1;
     gameRef.current.player.jumpsRemaining = gameRef.current.player.maxJumps;
 
     lastRegenRef.current = 0;
-    setInvulnerableUntil(0);
+    setInvulnerableUntilSafe(0);
     resetDnd();
-    setGameState('PLAYING');
+    setGameStateSafe('PLAYING');
     setScore(0);
     scoreSavedRef.current = false;
-  }, [selectedClass, resetDnd, GROUND_Y]);
+  }, [resetDnd, GROUND_Y, setGameStateSafe, setInvulnerableUntilSafe]);
 
-  const handleInput = useCallback(() => {
-    if (gameState === 'START' || gameState === 'GAME_OVER') {
-      setGameState('CLASS_SELECTION');
-    } else if (gameState === 'PLAYING') {
+  // ─── ФИКС ИНПУТ-ЛАГА: jumpRef не зависит от React-состояния ────────────
+  const jumpRef = useRef<() => void>(() => {});
+
+  jumpRef.current = () => {
+    const state = gameStateRef.current;
+    if (state === 'START' || state === 'GAME_OVER') {
+      setGameStateSafe('CLASS_SELECTION');
+      return;
+    }
+    if (state === 'PLAYING') {
       const { player } = gameRef.current;
       if (player.jumpsRemaining > 0) {
-        player.vy = JUMP_STRENGTH * (selectedClass?.jumpMultiplier || 1.0);
+        const cls = selectedClassRef.current;
+        player.vy = JUMP_STRENGTH * (cls?.jumpMultiplier || 1.0);
         const isSecond = player.jumpsRemaining < player.maxJumps;
         player.jumpsRemaining--;
         createJumpEffect(
@@ -902,7 +938,10 @@ const GameCanvas: React.FC = () => {
         );
       }
     }
-  }, [gameState, selectedClass, JUMP_STRENGTH]);
+  };
+
+  // handleInput стабилен — всегда вызывает jumpRef.current, зависимостей нет
+  const handleInput = useCallback(() => jumpRef.current(), []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -923,7 +962,8 @@ const GameCanvas: React.FC = () => {
   return (
     <div
       className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]"
-      onClick={handleInput}
+      // ФИКС: onPointerDown вместо onClick — срабатывает на ~100ms раньше на мобайле
+      onPointerDown={handleInput}
     >
       {gameState === 'CLASS_SELECTION' && (
         <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
@@ -934,7 +974,11 @@ const GameCanvas: React.FC = () => {
               return (
                 <button
                   key={key}
-                  onClick={() => { selectClass(key); startNewGame(cls); }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    selectClass(key);
+                    startNewGame(cls);
+                  }}
                   className="bg-[#1A1621] border-2 border-primary p-4 active:scale-95 transition-all"
                 >
                   <div className="flex flex-col items-center gap-2">
@@ -997,7 +1041,7 @@ const GameCanvas: React.FC = () => {
               <p className="text-[10px] text-white mb-4 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
               <Leaderboard />
               <button
-                onClick={handleInput}
+                onPointerDown={(e) => { e.stopPropagation(); handleInput(); }}
                 className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6 active:translate-y-1 active:shadow-none"
               >
                 ИГРАТЬ СНОВА
