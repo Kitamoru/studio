@@ -745,15 +745,6 @@ const GameCanvas: React.FC = () => {
         ctx.drawImage(playerImgRef.current, p.x, p.y, p.width, p.height);
       }
     }
-
-    if (gameStateRef.current === 'START') {
-      ctx.fillStyle = 'rgba(0,0,0,0.85)';
-      ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#6226B3';
-      ctx.font = '14px "Press Start 2P"';
-      ctx.textAlign = 'center';
-      ctx.fillText('НАЖМИТЕ ДЛЯ НАЧАЛА', W / 2, H / 2 - 50);
-    }
   }, [drawBackground]);
 
   const handleUpdate = useCallback(({ deltaTime, timestamp }: { deltaTime: number; timestamp: number }) => {
@@ -919,10 +910,6 @@ const GameCanvas: React.FC = () => {
 
   jumpRef.current = () => {
     const state = gameStateRef.current;
-    if (state === 'START' || state === 'GAME_OVER') {
-      setGameStateSafe('CLASS_SELECTION');
-      return;
-    }
     if (state === 'PLAYING') {
       const { player } = gameRef.current;
       if (player.jumpsRemaining > 0) {
@@ -962,7 +949,6 @@ const GameCanvas: React.FC = () => {
   return (
     <div
       className="w-full h-screen flex flex-col select-none overflow-hidden touch-none relative bg-[#050406]"
-      // ФИКС: onPointerDown вместо onClick — срабатывает на ~100ms раньше на мобайле
       onPointerDown={handleInput}
     >
       {gameState === 'CLASS_SELECTION' && (
@@ -1003,9 +989,7 @@ const GameCanvas: React.FC = () => {
         )}
       >
         <div className="relative w-full h-full">
-          )}
-
-          {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
+          {gameState !== 'CLASS_SELECTION' && (
             <div className="absolute top-0 left-0 right-0 h-[6vh] flex justify-between items-center bg-[#0D0B12]/60 p-3 px-6 backdrop-blur-sm z-10">
               <div className="flex gap-1.5">
                 {Array.from({ length: maxHp }).map((_, i) => (
@@ -1037,7 +1021,10 @@ const GameCanvas: React.FC = () => {
               <p className="text-[10px] text-white mb-4 uppercase">ДИСТАНЦИЯ: {score} МЕТРОВ</p>
               <Leaderboard />
               <button
-                onPointerDown={(e) => { e.stopPropagation(); handleInput(); }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  setGameStateSafe('CLASS_SELECTION');
+                }}
                 className="bg-primary px-8 py-3 text-[10px] uppercase shadow-[0_4px_0_#4D1091] mt-6 active:translate-y-1 active:shadow-none"
               >
                 ИГРАТЬ СНОВА
