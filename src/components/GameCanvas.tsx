@@ -50,7 +50,7 @@ const GameCanvas: React.FC = () => {
 
   const { user, initData } = useTelegramUser();
 
-  const [gameState, setGameState] = useState<GameStatus>('START');
+  const [gameState, setGameState] = useState<GameStatus>('CLASS_SELECTION');
   const [score, setScore] = useState(0);
   const [collectedCoins, setCollectedCoins] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -61,7 +61,7 @@ const GameCanvas: React.FC = () => {
   const scoreSavedRef = useRef(false);
 
   // ─── ФИКС ИНПУТ-ЛАГА: рефы для gameState и selectedClass ────────────────
-  const gameStateRef = useRef<GameStatus>('START');
+  const gameStateRef = useRef<GameStatus>('CLASS_SELECTION');
   const selectedClassRef = useRef(selectedClass);
   const invulnerableUntilRef = useRef(0);
   const lastScoreUpdateRef = useRef(0);
@@ -91,7 +91,7 @@ const GameCanvas: React.FC = () => {
   const engineRef = useRef<EngineState & { collectedCoins: number }>({
     speed: 5.0,
     distance: 0,
-    status: 'START',
+    status: 'CLASS_SELECTION',
     lastTimestamp: 0,
     elapsedTime: 0,
     collectedCoins: 0,
@@ -1003,10 +1003,6 @@ const GameCanvas: React.FC = () => {
         )}
       >
         <div className="relative w-full h-full">
-          {gameState === 'START' && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
-              <Leaderboard />
-            </div>
           )}
 
           {gameState !== 'START' && gameState !== 'CLASS_SELECTION' && (
